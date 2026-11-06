@@ -4,6 +4,10 @@ A privacy-first giveaway and contest spinner with cryptographic, independently v
 
 **[Open the live demo](https://adrianspeyer.github.io/FairSpinner/) · [Fork the project](https://github.com/adrianspeyer/FairSpinner/fork) · [Download ZIP](https://github.com/adrianspeyer/FairSpinner/archive/refs/heads/main.zip)**
 
+<!-- release-summary:start -->
+**Current version: 1.1.0 · Released November 6, 2026.** [Changelog](./CHANGELOG.md) · [Contributing](./CONTRIBUTING.md)
+<!-- release-summary:end -->
+
 **Source available under [PolyForm Noncommercial 1.0.0](./LICENSE).** Noncommercial use is permitted. Commercial use outside the license’s expressly permitted purposes requires separate permission from Adrian Speyer; see the full terms below.
 
 ## Quick start
@@ -34,6 +38,7 @@ You can fork the repository or use **Download ZIP** on the app page to get your 
 - **Verify** independently checks an exported audit JSON and can replay its draws.
 - **History** keeps completed sessions in this browser when you start the next draw. Expand a session to see its winners and event log, download its audit, or verify and replay it.
 - **How it works** explains the commit–reveal process, limitations, and includes a copyable Python verifier.
+- The footer identifies the application version and links to release information. Include that version when reporting a problem; application releases are separate from audit format versions.
 - The UI includes draw-progress guidance, keyboard-operated tabs, labelled inputs, screen-reader result announcements, narrow-screen layouts, and reduced-motion support for the wheel and confetti.
 
 ## Features
@@ -138,6 +143,8 @@ integrity    SHA-256 of the compact JSON with this field removed
 
 Manual audits remain version 1. Automatic audits are version 2 and add `commitment.beacon` (provider, pinned chain hash/public key/scheme, round, scheduled time) and `entropy.beacon` (round, signature, randomness; null while pending). Their HMAC entropy is the exact string `drand:quicknet:<chainHash>:<round>:<randomness>`. The draw algorithm itself remains `fairspin/v1`. Stripping the automatic proof or downgrading that entropy to a version-1 audit is rejected.
 
+`tool.version` and `tool.releaseDate` identify the application release that exported the audit. These diagnostic fields are separate from the audit format version; older audits without them remain supported.
+
 Each GIF also carries an embedded comment with the draw number, timestamp, winner, list hash, seed commitment and HMAC.
 
 ## Limits to be upfront about
@@ -158,11 +165,14 @@ Each GIF also carries an embedded comment with the draw number, timestamp, winne
 
 ## Development and QA
 
+GitHub Actions runs the release-metadata checks, CSP checks and regression tests on pushes and pull requests. It uses read-only repository permissions and pinned action revisions. Bug reports request the footer version and synthetic reproduction data; see [Contributing](./CONTRIBUTING.md) and [security reporting](./SECURITY.md#reporting-a-problem).
+
 No npm install or build step is needed to run the app or the tests. With Node.js 20.19+ and Python 3 installed:
 
 ```sh
-node --test tests/*.test.cjs
+node scripts/sync-release.cjs --check
 node scripts/update-csp.cjs --check
+node --test tests/*.test.cjs
 ```
 
 After changing application JavaScript, run `node scripts/update-csp.cjs` to synchronize the vendored verifier into `index.html` and refresh all three Content Security Policy hashes. A stale policy deliberately prevents modified scripts from running. Keep the Python code embedded in the How it works tab synchronized with `verify.py`.
@@ -179,6 +189,12 @@ npm run check:beacon
 `package-lock.json` pins Noble Curves, Noble Hashes and esbuild. The generated bundle retains the full MIT notice; commit both the reviewed bundle and synchronized HTML. `npm audit` checks dependency advisories; it does not replace cryptographic review.
 
 Regression tests cover independent SHA-256/HMAC vectors, rejection sampling, tampered audits, Python verification, session recovery, stale-tab protection, CSV parsing, reduced-motion/cancellation, byte-for-byte GIF decoding, genuine drand beacon signatures, automatic-audit tampering, future-round binding, local-time scheduling, fetch cancellation/retry behavior, and light/dark primary-button contrast. See [SECURITY.md](./SECURITY.md) for review scope and remaining trust boundaries. Browser visual QA is a separate release check; mocked DOM tests do not establish browser compatibility or visual correctness.
+
+### Versions and release notes
+
+The current application version is shown in the footer. [CHANGELOG.md](./CHANGELOG.md) records dated releases and the earlier unversioned development history. `package.json` is the canonical version; the matching changelog heading supplies the release date. These release numbers do not replace the audit schema versions or the `fairspin/v1` draw algorithm.
+
+When preparing a release, update `package.json` and the matching changelog entry, run `node scripts/sync-release.cjs`, then `node scripts/update-csp.cjs`. Run both scripts with `--check` and the test suite before publishing. See [CONTRIBUTING.md](./CONTRIBUTING.md) for the complete workflow and safe bug-reporting guidance.
 
 ### Keeping the public repository clean
 
@@ -205,6 +221,9 @@ Entries and secret seeds are never uploaded. Hashing, drawing, signature verific
 | File | Purpose |
 |---|---|
 | `index.html` | GitHub Pages entry point and the whole app |
+| `CHANGELOG.md` | Dated application release notes and earlier commit history |
+| `CONTRIBUTING.md` | Development, bug reporting and release-maintenance guidance |
+| `package.json`, `package-lock.json` | Canonical application version and pinned build dependencies |
 | `verify.py` | Python verifier; automatic proofs also use the offline Node helper |
 | `crypto/beacon-verifier.js`, `vendor/beacon-verifier.js` | Beacon-verifier source and checked-in browser bundle |
 | `scripts/verify-beacon.cjs` | Offline signature-verification bridge for Python |
@@ -214,6 +233,7 @@ Entries and secret seeds are never uploaded. Hashing, drawing, signature verific
 | `.gitignore` | Exclude local metadata, secrets and private draw exports |
 | `tests/*.test.cjs` | Dependency-free automated security and QA tests |
 | `scripts/update-csp.cjs` | Synchronize the beacon bundle and refresh/check script hashes |
+| `scripts/sync-release.cjs` | Synchronize/check release metadata and package-lock version |
 | `fairspin-<session>-audit.json` | Exported audit log |
 | `fairspin-<session>-drawN.gif` | Timestamped spin recording |
 | `fairspin-<session>-drawN-certificate.png` | Shareable result card |

@@ -8,9 +8,10 @@ Required Notice: Copyright (c) 2026 Adrian Speyer (https://github.com/adrianspey
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-ebdm4kxtVkq7c/NNizumzBYpwzzW8ncXtrXJm5eN7Js=' 'sha256-KeszA/dDOtmEXg6nsVt8cAIhirOK0OlHJx76dWYeqok='; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.drand.sh https://api2.drand.sh; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-ebdm4kxtVkq7c/NNizumzBYpwzzW8ncXtrXJm5eN7Js=' 'sha256-hxIQubPgTPKGa8p6TTsf/ShyIOsomBTRQQ5he/LY1lk='; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.drand.sh https://api2.drand.sh; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FairSpin — verifiable random draw</title>
+<meta name="generator" content="FairSpin v1.1.0">
 <meta name="description" content="Run a transparent, cryptographically verifiable giveaway draw. Free, private, and works offline.">
 <meta name="theme-color" content="#0c0e13">
 <meta name="referrer" content="no-referrer">
@@ -210,6 +211,9 @@ label.btn:focus-within{outline:2px solid var(--acc);outline-offset:2px}
 @media(max-width:480px){.win-item{grid-template-columns:32px minmax(0,1fr);gap:8px}.win-item .acts{grid-column:2;justify-content:flex-start}.logbody div{grid-template-columns:1fr;gap:0}.hash{flex-wrap:wrap}.hash .v{min-width:140px}.wsec-h .row{gap:6px}.wsec-h .btn{white-space:normal;text-align:center}.intro h1{font-size:34px}.journey li{min-width:100px}.hdr-right .pill{display:none}.btn,.copy,nav.tabs button{min-height:40px}.grid,.vgrid{grid-template-columns:minmax(0,1fr)}}
 footer{max-width:1320px;margin:0 auto;padding:10px 22px 26px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 footer a{text-decoration:none}
+footer strong{color:var(--text)}
+.footer-meta{margin-top:4px}
+.footer-links{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
 @media(max-width:800px){.intro{align-items:flex-start;flex-direction:column;gap:16px}.intro-actions{align-items:flex-start}.repo-actions{justify-content:flex-start}.trust{justify-content:flex-start}}
 @media(max-width:650px){header.top{padding:12px 14px;gap:10px}.brand small{display:none}nav.tabs{order:3;margin:0;width:100%;justify-content:space-between}nav.tabs button{flex:1;padding:7px 5px}.hdr-right{gap:6px}.hdr-right .pill:nth-child(2){display:none}main{padding:14px}.stage{padding:14px}.intro{padding-top:16px}.wsec-h{align-items:flex-start;flex-direction:column}.wsec-h .row{margin-left:0}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
@@ -684,7 +688,14 @@ if __name__ == "__main__":
 </pre></details>
 </section>
 </main>
-<footer><span>FairSpin · Private and source available for noncommercial use. <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener noreferrer">PolyForm Noncommercial license</a></span><span>All processing stays in your browser. <a href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">Source on GitHub</a></span></footer>
+<footer>
+  <div><strong>FairSpin <span id="appVersion">v1.1.0</span></strong> · Released <time id="releaseDate" datetime="2026-11-06">2026-11-06</time>
+    <div class="footer-meta">Private and source available for noncommercial use. <a href="https://polyformproject.org/licenses/noncommercial/1.0.0" target="_blank" rel="noopener noreferrer">PolyForm Noncommercial license</a></div>
+  </div>
+  <div>All processing stays in your browser.
+    <nav class="footer-links" aria-label="Project links"><a href="https://github.com/adrianspeyer/FairSpinner/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">Changelog</a><a href="https://github.com/adrianspeyer/FairSpinner/issues/new/choose" target="_blank" rel="noopener noreferrer">Report an issue</a><a href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">Source on GitHub</a></nav>
+  </div>
+</footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="sr-only" id="announcement" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -722,6 +733,8 @@ THE SOFTWARE.
 
 <script>
 'use strict';
+// Synchronized from package.json and CHANGELOG.md by scripts/sync-release.cjs.
+const APP_RELEASE = Object.freeze({ version: '1.1.0', date: '2026-11-06' });
 /* ============================== utils ============================== */
 const $ = s => document.querySelector(s);
 const enc = new TextEncoder();
@@ -1669,7 +1682,7 @@ function buildAudit() {
   const L = S.locked;
   const a = {
     format: 'fairspin-audit', version: L.beacon ? 2 : 1, generatedAt: nowISO(),
-    tool: { name: 'FairSpin', runtime: L.beacon ? 'single HTML file, local computations, optional drand relay requests' : 'single local HTML file, offline', userTimezone: TZ },
+    tool: { name: 'FairSpin', version: APP_RELEASE.version, releaseDate: APP_RELEASE.date, runtime: L.beacon ? 'single HTML file, local computations, optional drand relay requests' : 'single local HTML file, offline', userTimezone: TZ },
     session: { id: S.id, createdAt: S.createdAt },
     algorithm: {
       listHash: 'SHA-256 of entries joined with "\\n" (UTF-8), hex',

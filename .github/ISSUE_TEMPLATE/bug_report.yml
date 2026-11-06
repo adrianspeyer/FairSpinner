@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible problem with FairSpin.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use invented participant names and synthetic data. Do not attach real entry lists, seeds, audit exports, or screenshots containing private information.
+        For a suspected security vulnerability, follow [SECURITY.md](https://github.com/adrianspeyer/FairSpinner/blob/main/SECURITY.md#reporting-a-problem) before sharing details.
+  - type: input
+    id: version
+    attributes:
+      label: FairSpin version
+      description: Copy the version from the footer. Include the commit if using a modified copy.
+      placeholder: v1.1.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and operating system
+      description: Include versions and whether you used the hosted page or a local HTML file.
+      placeholder: Chrome 142 on macOS 26; hosted page
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Describe the smallest reproducible example using synthetic data. Include relevant settings such as randomness mode or Reduce Motion.
+      placeholder: |
+        1. Open FairSpin and load sample data.
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include the error text or a redacted screenshot if helpful.
+    validations:
+      required: true

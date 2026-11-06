@@ -337,6 +337,8 @@ test('lock, spin, refresh and completion preserve winners before animation finis
   await ui.run('spin()');
   assert.equal(ui.run('S.draws.length'), 2);
   assert.equal(ui.run('verifyAudit(buildAudit()).ok'), true);
+  assert.equal(ui.run('buildAudit().tool.version'), JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version);
+  assert.match(ui.run('buildAudit().tool.releaseDate'), /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(ui.node('#spinBtn').disabled, false);
   ui.node('#clearBtn').onclick();
   assert.equal(ui.run('S.locked'), null);

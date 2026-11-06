@@ -2,6 +2,14 @@
 
 Reviewed on November 6, 2026. FairSpin remains a standalone, offline-capable page with its signature-verification dependencies bundled locally. Automatic randomness is an opt-in online feature. This is a code review with automated regression coverage, not a certification or a guarantee that no defects remain.
 
+## Reporting a problem
+
+Report ordinary bugs through [repository issues](https://github.com/adrianspeyer/FairSpinner/issues), with the version shown in the footer, your browser and operating system, and steps that reproduce the problem using invented participant names.
+
+For a suspected security vulnerability, use **Report a vulnerability** in the [repository's Security tab](https://github.com/adrianspeyer/FairSpinner/security) if that option is available. Otherwise, open an issue asking how to share a private security report, without including vulnerability details. Do not publish exploit details while arranging a private reporting channel.
+
+Never post real participant lists, seeds, or complete audit exports in public reports. Use synthetic examples and redact private information from screenshots and logs.
+
 ## Findings addressed
 
 | Finding | Impact | Change |

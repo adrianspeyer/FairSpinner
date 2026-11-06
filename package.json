@@ -1,12 +1,17 @@
 {
   "name": "fairspin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Standalone verifiable random draws; dependencies are only needed to rebuild the bundled beacon verifier.",
+  "homepage": "https://adrianspeyer.github.io/FairSpinner/",
+  "repository": { "type": "git", "url": "git+https://github.com/adrianspeyer/FairSpinner.git" },
+  "bugs": { "url": "https://github.com/adrianspeyer/FairSpinner/issues" },
   "license": "PolyForm-Noncommercial-1.0.0",
   "engines": { "node": ">=20.19.0" },
   "scripts": {
     "test": "node --test tests/*.test.cjs",
+    "sync:release": "node scripts/sync-release.cjs && node scripts/update-csp.cjs",
+    "check:release": "node scripts/sync-release.cjs --check && node scripts/update-csp.cjs --check",
     "build:beacon": "node scripts/build-beacon.cjs",
     "check:beacon": "node scripts/build-beacon.cjs --check"
   },
