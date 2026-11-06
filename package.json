@@ -1,0 +1,18 @@
+{
+  "name": "fairspin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone verifiable random draws; dependencies are only needed to rebuild the bundled beacon verifier.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "engines": { "node": ">=20.19.0" },
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "build:beacon": "node scripts/build-beacon.cjs",
+    "check:beacon": "node scripts/build-beacon.cjs --check"
+  },
+  "devDependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "esbuild": "0.28.2"
+  }
+}

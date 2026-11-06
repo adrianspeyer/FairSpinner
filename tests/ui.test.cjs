@@ -367,7 +367,9 @@ test('application initializes, loads sample, locks rules, draws, verifies and re
   assert.equal(app.run('S.draws.length'), 1);
   assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
   assert.equal(app.elements.get('readVal').textContent, app.run('S.draws[0].winner'));
-  assert.equal(app.elements.get('spinBtn').disabled, true);
+  assert.equal(app.elements.get('spinBtn').disabled, false);
+  assert.equal(app.elements.get('spinBtn').hidden, false);
+  assert.equal(app.elements.get('spinBtn').textContent, 'START NEXT DRAW');
   assert.equal(app.elements.get('nextDrawPanel').hidden, false);
   assert.equal(app.elements.get('nextSessionBtn').disabled, false);
   assert.match(app.elements.get('announcement').textContent, /^Winner 1 of 1:/);
@@ -381,21 +383,69 @@ test('application initializes, loads sample, locks rules, draws, verifies and re
   assert.equal(restored.elements.get('readVal').textContent, app.run('S.draws[0].winner'));
 });
 
-test('planned winners use NEXT DRAW and offer a new session only after completion', async () => {
+test('planned winners keep NEXT SPIN visible and offer a new session at the same control after completion', async () => {
   const app = appHarness();
   await app.click('sampleBtn');
   app.elements.get('target').value = '2'; await app.elements.get('target').dispatch('change');
   await app.click('lockBtn');
   assert.equal(app.elements.get('nextDrawPanel').hidden, true);
   await app.click('spinBtn');
-  assert.match(app.elements.get('spinBtn').textContent, /^NEXT DRAW/);
+  assert.match(app.elements.get('spinBtn').textContent, /^NEXT SPIN/);
   assert.equal(app.elements.get('spinBtn').disabled, false);
+  assert.equal(app.elements.get('spinBtn').hidden, false);
   assert.equal(app.elements.get('nextDrawPanel').hidden, true);
   await app.click('spinBtn');
-  assert.equal(app.elements.get('spinBtn').disabled, true);
+  assert.equal(app.elements.get('spinBtn').disabled, false);
+  assert.equal(app.elements.get('spinBtn').hidden, false);
+  assert.equal(app.elements.get('spinBtn').textContent, 'START NEXT DRAW');
   assert.equal(app.elements.get('nextDrawPanel').hidden, false);
   assert.equal(app.elements.get('nextEntries').value, 'remaining');
   assert.equal(app.elements.get('nextEntries').options.find((option) => option.value === 'remaining').disabled, false);
+});
+
+test('the next-draw control stays available when the committed plan exhausts the pool', async () => {
+  const app = appHarness();
+  app.run('S.raw = "Alice\\nBob"; el.entries.value = S.raw; el.target.value = "2"; renderStats(); renderAll();');
+  await app.click('lockBtn'); await app.click('spinBtn'); await app.click('spinBtn');
+  assert.equal(app.run('currentPoolIdx().length'), 0);
+  assert.equal(app.elements.get('spinBtn').hidden, false);
+  assert.equal(app.elements.get('spinBtn').disabled, false);
+  assert.equal(app.elements.get('spinBtn').textContent, 'START NEXT DRAW');
+  assert.equal(app.elements.get('nextEntries').value, 'all');
+});
+
+test('primary buttons keep readable foreground/background contrast through hover and keyboard focus', () => {
+  const css = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+  const declarations = (body) => Object.fromEntries(body.split(';').map((s) => s.trim()).filter(Boolean).map((s) => {
+    const colon = s.indexOf(':'); return [s.slice(0, colon).trim(), s.slice(colon + 1).trim()];
+  }));
+  const root = declarations(css.match(/:root\s*\{([^}]+)\}/)[1]);
+  const light = { ...root, ...declarations(css.match(/\[data-theme="light"\]\s*\{([^}]+)\}/)[1]) };
+  const luminance = (hex) => {
+    const value = hex.replace('#', ''), full = value.length === 3 ? value.split('').map((c) => c + c).join('') : value;
+    const channels = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255).map((c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  for (const [theme, vars] of [['dark', root], ['light', light]]) {
+    for (const state of ['normal', 'hover', 'focus-visible']) {
+      const rules = [];
+      for (const [order, match] of [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].entries()) {
+        for (const selector of match[1].trim().split(',').map((s) => s.trim())) {
+          if (!/^\.btn(?:\.primary)?(?::(?:hover|focus-visible))?(?::not\(:disabled\))?$/.test(selector)) continue;
+          if (selector.includes(':hover') && state !== 'hover') continue;
+          if (selector.includes(':focus-visible') && state !== 'focus-visible') continue;
+          const specificity = (selector.match(/\.[\w-]+|:(?:hover|focus-visible|disabled)/g) || []).length;
+          rules.push({ specificity, order, declarations: declarations(match[2]) });
+        }
+      }
+      rules.sort((a, b) => a.specificity - b.specificity || a.order - b.order);
+      const resolved = Object.assign({}, ...rules.map((r) => r.declarations));
+      const color = (value) => value.replace(/var\((--[\w-]+)\)/g, (_, token) => vars[token]);
+      const a = luminance(color(resolved.background)), b = luminance(color(resolved.color));
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      assert.ok(ratio >= 4.5, `${theme} ${state} primary button contrast is ${ratio.toFixed(2)}:1`);
+    }
+  }
 });
 
 test('History participates in tab navigation and keeps the current draw accessible', async () => {

@@ -273,8 +273,8 @@ test('restoring a valid session preserves its recorded winners and committed rul
   assert.equal(ui.run('S.locked.seed'), seed);
   assert.equal(ui.node('#target').disabled, true);
   assert.equal(ui.node('#removeWinners').disabled, true);
-  assert.equal(ui.node('#spinBtn').disabled, true);
-  assert.match(ui.node('#spinBtn').textContent, /COMPLETE/);
+  assert.equal(ui.node('#spinBtn').disabled, false);
+  assert.equal(ui.node('#spinBtn').textContent, 'START NEXT DRAW');
 });
 
 test('corrupt saved sessions remain recoverable and cannot be overwritten by autosave', () => {
@@ -336,7 +336,7 @@ test('lock, spin, refresh and completion preserve winners before animation finis
   await ui.run('spin()');
   assert.equal(ui.run('S.draws.length'), 2);
   assert.equal(ui.run('verifyAudit(buildAudit()).ok'), true);
-  assert.equal(ui.node('#spinBtn').disabled, true);
+  assert.equal(ui.node('#spinBtn').disabled, false);
   ui.node('#clearBtn').onclick();
   assert.equal(ui.run('S.locked'), null);
   assert.equal(ui.run('S.draws.length'), 0);
@@ -369,7 +369,7 @@ test('an asynchronous import cannot repopulate a cleared session', async () => {
   assert.equal(ui.run('S.raw'), '');
 });
 
-test('content security policy authorizes exactly the embedded scripts and blocks connections', () => {
+test('content security policy authorizes embedded scripts and only the two pinned beacon relays', () => {
   const tag = html.match(/<meta\b[^>]*http-equiv=["']Content-Security-Policy["'][^>]*>/i)?.[0];
   assert.ok(tag, 'A Content-Security-Policy meta tag is required');
   const policy = tag.match(/content="([^"]*)"/i)?.[1];
@@ -378,7 +378,10 @@ test('content security policy authorizes exactly the embedded scripts and blocks
   assert.ok(scriptPolicy, 'script-src must be explicit');
   const expected = scripts.map((s) => `'sha256-${crypto.createHash('sha256').update(s[1]).digest('base64')}'`).sort();
   assert.deepEqual(scriptPolicy.trim().split(/\s+/).sort(), expected, 'Run node scripts/update-csp.cjs after editing embedded scripts');
-  for (const directive of ['connect-src', 'object-src', 'base-uri', 'form-action']) assert.match(policy, new RegExp(`(?:^|;)\\s*${directive}\\s+'none'(?:;|$)`));
+  for (const directive of ['object-src', 'base-uri', 'form-action']) assert.match(policy, new RegExp(`(?:^|;)\\s*${directive}\\s+'none'(?:;|$)`));
+  assert.equal(policy.match(/(?:^|;)\s*connect-src\s+([^;]+)/)[1], 'https://api.drand.sh https://api2.drand.sh');
+  assert.equal(scripts.length, 3);
+  assert.equal(scripts.find(s => s[0].startsWith('<script id="beaconVerifier">'))[1].trim(), fs.readFileSync(path.join(__dirname, '..', 'vendor', 'beacon-verifier.js'), 'utf8').trim());
 });
 
 test('embedded independent verifier matches the tested standalone script', () => {

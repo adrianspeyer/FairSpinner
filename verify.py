@@ -2,7 +2,11 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 # License: https://polyformproject.org/licenses/noncommercial/1.0.0
 # Required Notice: Copyright (c) 2026 Adrian Speyer (https://github.com/adrianspeyer/FairSpinner)
-"""Independent FairSpin v1 verifier. Python 3, standard library only.
+"""Independent FairSpin draw verifier. Python 3.
+
+Manual v1 audits require only Python standard libraries. Automatic v2 audits
+also require Node.js and the scripts/ and vendor/ files from this repository
+to verify the drand BLS signature offline with the bundled verifier.
 
 Usage: python3 verify.py fairspin-SESSION-audit.json
 
@@ -18,10 +22,19 @@ import hashlib
 import hmac
 import json
 import math
+import pathlib
+import subprocess
 import re
 import sys
 
 MAX_BYTES = 10 * 1024 * 1024
+QUICKNET = {
+    "chainHash": "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
+    "publicKey": "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
+    "scheme": "bls-unchained-g1-rfc9380",
+    "genesisTime": 1692803367,
+    "period": 3,
+}
 HEX = re.compile(r"[0-9a-f]{64}\Z")
 DATE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z\Z")
 # ECMAScript trim whitespace; Python str.strip() includes additional characters.
@@ -59,8 +72,40 @@ def timestamp(value):
     return datetime.datetime.fromisoformat(value[:-1] + "+00:00")
 
 
+def verify_beacon(a, committed, entered):
+    c, entropy, draws = a["commitment"], a["entropy"], a["draws"]
+    if a["version"] == 1:
+        require("beacon" not in c and "beacon" not in entropy and not entropy["value"].startswith("drand:quicknet:"), "Automatic beacon evidence requires version 2; it cannot be downgraded to manual entropy")
+        return
+    b = c.get("beacon")
+    require(isinstance(b, dict) and b.get("provider") == "drand-quicknet", "Missing automatic beacon commitment")
+    for field in ("chainHash", "publicKey", "scheme"):
+        require(b.get(field) == QUICKNET[field], "Untrusted beacon " + field)
+    require(integer(b.get("round"), 1, 2 ** 53 - 1), "Invalid beacon round")
+    scheduled = timestamp(b.get("scheduledAt"))
+    expected_seconds = QUICKNET["genesisTime"] + (b["round"] - 1) * QUICKNET["period"]
+    epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+    require(scheduled - epoch == datetime.timedelta(seconds=expected_seconds) and scheduled > committed, "Beacon round must be scheduled after the commitment and match the pinned chain schedule")
+    require("beacon" in entropy, "Missing beacon proof field")
+    proof = entropy["beacon"]
+    if proof is None:
+        require(not draws and entropy["value"] == "" and entered is None, "Unpublished beacon cannot have entropy or draws")
+        return
+    require(isinstance(proof, dict) and type(proof.get("round")) is int and proof["round"] == b["round"], "Beacon proof round mismatch")
+    require(isinstance(proof.get("signature"), str) and re.fullmatch(r"[0-9a-f]{96}", proof["signature"]) and fingerprint(proof.get("randomness")), "Invalid beacon proof encoding")
+    require(entropy["value"] == f"drand:quicknet:{QUICKNET['chainHash']}:{b['round']}:{proof['randomness']}", "Entropy does not match the committed beacon proof")
+    require(entered is not None and entered >= scheduled, "Beacon recorded before its scheduled publication")
+    helper = pathlib.Path(__file__).resolve().parent / "scripts" / "verify-beacon.cjs"
+    require(helper.is_file(), "Automatic audits require Node.js and the complete FairSpin repository (scripts/verify-beacon.cjs and vendor/beacon-verifier.js); use the browser Verify tab instead")
+    try:
+        result = subprocess.run(["node", str(helper)], input=json.dumps({"proof": proof, "expectedRound": b["round"]}), text=True, capture_output=True, timeout=15, check=False)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ValueError("Automatic beacon verification requires Node.js and the bundled verifier; use the browser Verify tab instead") from error
+    require(result.returncode == 0 and result.stdout.strip() == '{"ok":true}', "Drand BLS signature verification failed; check Node.js and the bundled verifier are available")
+
+
 def verify(a):
-    require(isinstance(a, dict) and a.get("format") == "fairspin-audit" and type(a.get("version")) is int and a["version"] == 1, "Expected a FairSpin version 1 audit")
+    require(isinstance(a, dict) and a.get("format") == "fairspin-audit" and type(a.get("version")) is int and a["version"] in (1, 2), "Expected a FairSpin version 1 or 2 audit")
     for section in ("list", "commitment", "entropy", "reveal", "session"):
         require(isinstance(a.get(section), dict), "Missing section: " + section)
     entries, c, entropy = a["list"].get("entries"), a["commitment"], a["entropy"]
@@ -100,6 +145,7 @@ def verify(a):
         require(locked is not None and committed <= locked <= first and (entered is None or entered <= locked), "Entropy must be fixed before the first draw")
     else:
         require(locked is None, "Entropy locked without a draw")
+    verify_beacon(a, committed, entered)
     events = a.get("events")
     require(isinstance(events, list) and len(events) <= 20000, "Invalid event log")
     for event in events:
@@ -178,6 +224,8 @@ def main(argv):
     for n, winner in results:
         print(f"Draw {n}: OK -> {json.dumps(winner, ensure_ascii=True)}")
     print(f"Verified {len(results)} draw(s) and the commitment calculations.")
+    if audit["version"] == 2:
+        print("Automatic beacon proof checked offline by the bundled Node.js verifier." if audit["entropy"]["beacon"] is not None else "Committed future beacon is pending; no draws were recorded.")
     print("Whole-file checksum not checked; use the browser verifier for that check.")
     print("Compare commitments and rules with the public post. Local timestamps do not prove publication.")
     return 0
