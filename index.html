@@ -163,6 +163,9 @@ pre.code{background:var(--field);border:1px solid var(--line);border-radius:10px
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .intro{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:20px 2px 24px}
 .intro-copy{max-width:720px}
+.intro-actions{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
+.repo-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.repo-actions .btn{min-height:36px}
 .eyebrow{display:flex;align-items:center;gap:8px;color:var(--acc);font-size:11px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}
 .eyebrow:before{content:"";width:20px;height:2px;background:var(--acc);border-radius:2px}
 .intro h1{font-size:clamp(30px,5vw,52px);line-height:1.05;letter-spacing:-.045em;margin:12px 0 10px}
@@ -173,7 +176,7 @@ pre.code{background:var(--field);border:1px solid var(--line);border-radius:10px
 .theme-toggle{min-width:100px}
 footer{max-width:1320px;margin:0 auto;padding:10px 22px 26px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 footer a{text-decoration:none}
-@media(max-width:800px){.intro{align-items:flex-start;flex-direction:column;gap:16px}.trust{justify-content:flex-start}}
+@media(max-width:800px){.intro{align-items:flex-start;flex-direction:column;gap:16px}.intro-actions{align-items:flex-start}.repo-actions{justify-content:flex-start}.trust{justify-content:flex-start}}
 @media(max-width:650px){header.top{padding:12px 14px;gap:10px}.brand small{display:none}nav.tabs{order:3;margin:0;width:100%;justify-content:space-between}nav.tabs button{flex:1;padding:7px 5px}.hdr-right{gap:6px}.hdr-right .pill:nth-child(2){display:none}main{padding:14px}.stage{padding:14px}.intro{padding-top:16px}.wsec-h{align-items:flex-start;flex-direction:column}.wsec-h .row{margin-left:0}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style>
@@ -204,8 +207,15 @@ footer a{text-decoration:none}
       <h1 id="introTitle">A fair draw.<br><span>A proof anyone can check.</span></h1>
       <p>Run a giveaway with confidence. Lock your entries, publish the commitment, draw a winner, and share the math behind every result.</p>
     </div>
-    <div class="trust" aria-label="Product features">
-      <span>◈ Cryptographic proof</span><span>◎ Private by default</span><span>↗ Works offline</span>
+    <div class="intro-actions">
+      <nav class="repo-actions" aria-label="FairSpin on GitHub">
+        <a class="btn primary" href="https://github.com/adrianspeyer/FairSpinner/fork" target="_blank" rel="noopener noreferrer">⑂ Fork on GitHub</a>
+        <a class="btn" href="https://github.com/adrianspeyer/FairSpinner/archive/refs/heads/main.zip" download>↓ Download ZIP</a>
+        <a class="btn" href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">⌘ View source</a>
+      </nav>
+      <div class="trust" aria-label="Product features">
+        <span>◈ Cryptographic proof</span><span>◎ Private by default</span><span>↗ Works offline</span>
+      </div>
     </div>
   </section>
   <div class="banner" id="tempBanner">
@@ -370,7 +380,7 @@ for d in a["draws"]:
     taken.append(w); print(f"draw {d['n']}: OK -> {E[w]}")</pre>
 </section>
 </main>
-<footer><span>FairSpin · Free, private, and open to verification.</span><span>All processing stays in your browser.</span></footer>
+<footer><span>FairSpin · Free, private, and open to verification.</span><span>All processing stays in your browser. <a href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">Open-source on GitHub</a></span></footer>
 <div class="toast" id="toast"></div>
 
 <script>

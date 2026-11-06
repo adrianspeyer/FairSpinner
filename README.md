@@ -1,6 +1,8 @@
 # FairSpin — verifiable random draw
 
-A private-by-default giveaway and contest spinner with cryptographic, independently verifiable results. FairSpin is a single HTML file: no server, install, internet connection, build step, or outside libraries required. All names, hashes, seeds, and exports stay on the device running the draw.
+A privacy-first giveaway and contest spinner with cryptographic, independently verifiable results. FairSpin is a single HTML file: no server, install, internet connection, build step, or outside libraries required. All names, hashes, seeds, and exports stay on the device running the draw.
+
+**[Open the live demo](https://adrianspeyer.github.io/FairSpinner/) · [Fork the project](https://github.com/adrianspeyer/FairSpinner/fork) · [Download ZIP](https://github.com/adrianspeyer/FairSpinner/archive/refs/heads/main.zip)**
 
 ## Quick start
 
@@ -14,14 +16,13 @@ Try **Load sample** to explore the full flow without preparing a list.
 
 ## GitHub Pages demo
 
-`index.html` is the Pages entry point; the app is static and needs no build or dependencies.
+`index.html` is the Pages entry point; the app is static and needs no build or dependencies. The source repository is public; giveaway entries and draw data are still processed only in your browser.
 
-1. Push this repository to GitHub.
-2. In the repository, open **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and `/(root)`, then save.
-4. Open the Pages URL GitHub shows after deployment.
+1. In the repository, open **Settings → Pages**.
+2. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and `/(root)`, then save.
+3. Open `https://adrianspeyer.github.io/FairSpinner/` after GitHub finishes deploying.
 
-GitHub Pages availability for a private repository depends on your GitHub plan and organization policy. The repository can remain private; if Pages is unavailable for its visibility or plan, use the local `index.html` demo or enable Pages on an eligible repository.
+You can fork the repository or use **Download ZIP** on the app page to get your own copy.
 
 ## Interface
 
