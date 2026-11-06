@@ -207,6 +207,7 @@ const tampering = {
   'animation fraction': (a) => { a.draws[0].anim.frac = 0.99; },
   'animation turns': (a) => { a.draws[0].anim.turns = 99999; },
   'animation duration': (a) => { a.draws[0].anim.durationMs = -1; },
+  'animation beyond supported maximum': (a) => { a.draws[0].anim.durationMs = 30001; },
   'string animation duration': (a) => { a.draws[0].anim.durationMs = '7000'; },
   'more draws than committed winners': (a) => { a.commitment.winnersTarget = 1; },
   'non-boolean removal rule': (a) => { a.commitment.removeWinners = 'true'; },
@@ -340,7 +341,7 @@ test('lock, spin, refresh and completion preserve winners before animation finis
   ui.node('#clearBtn').onclick();
   assert.equal(ui.run('S.locked'), null);
   assert.equal(ui.run('S.draws.length'), 0);
-  assert.equal(ui.node('#duration').value, 7);
+  assert.equal(ui.node('#duration').value, 15);
   assert.equal(ui.node('#sound').checked, true);
 });
 
@@ -409,6 +410,9 @@ test('verification rejects resource-heavy draw plans before computing their draw
 
 test('Python independent verifier agrees on valid and semantically tampered audits', () => {
   const cases = [{ name: 'valid', audit: fixture(), expected: true }, { name: 'repeat wins', audit: fixture({ remove: false }), expected: true }];
+  const longSpin = fixture(); longSpin.draws.forEach(d => { d.anim.durationMs = 30000; }); sign(longSpin);
+  assert.equal(accepted(longSpin), true);
+  cases.push({ name: '30-second spins', audit: longSpin, expected: true });
   for (const [name, mutate] of Object.entries(tampering)) {
     const audit = fixture(); mutate(audit); sign(audit);
     cases.push({ name, audit, expected: false });

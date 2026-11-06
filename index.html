@@ -8,7 +8,7 @@ Required Notice: Copyright (c) 2026 Adrian Speyer (https://github.com/adrianspey
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-ebdm4kxtVkq7c/NNizumzBYpwzzW8ncXtrXJm5eN7Js=' 'sha256-NIOP5xZnHFULZGi8gT7pCHvVC//TYIHZj13nwKNIFZM='; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.drand.sh https://api2.drand.sh; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-ebdm4kxtVkq7c/NNizumzBYpwzzW8ncXtrXJm5eN7Js=' 'sha256-KeszA/dDOtmEXg6nsVt8cAIhirOK0OlHJx76dWYeqok='; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.drand.sh https://api2.drand.sh; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FairSpin — verifiable random draw</title>
 <meta name="description" content="Run a transparent, cryptographically verifiable giveaway draw. Free, private, and works offline.">
@@ -90,16 +90,19 @@ main{max-width:1320px;margin:0 auto;padding:22px}
 .step-h h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:0;font-weight:800}
 .step-h .tag{margin-left:auto;font-size:11px;color:var(--muted)}
 textarea{width:100%;min-height:170px;resize:vertical;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:12.5px/1.55 var(--mono);outline:none}
-textarea:focus,input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--focus)}
+textarea:focus,input[type=text]:focus,input[type=number]:focus,input[type=datetime-local]:focus,select:focus{border-color:var(--focus)}
 textarea[readonly]{opacity:.7}
 textarea.drag{border-color:var(--acc);background:var(--positive)}
-input[type=text],input[type=number],select{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;width:100%}
+input[type=text],input[type=number],input[type=datetime-local],select{background:var(--field);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;width:100%}
 input[type=number]{width:84px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .row + .row{margin-top:10px}
 .chk{display:inline-flex;gap:7px;align-items:center;cursor:pointer;color:var(--muted);font-size:13px;user-select:none}
 .chk input{accent-color:var(--acc)}
-label.fld{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 5px;font-weight:700}
+label.fld,legend.fld{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 5px;font-weight:700}
+.beacon-timing{border:0;padding:0;margin:0 0 12px;min-width:0}
+.beacon-timing .row{gap:8px 16px}
+input[type=datetime-local]{min-width:0}
 .stats{font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap}
 .stats b{color:var(--text);font-weight:700}
 .hash{display:flex;align-items:center;gap:8px;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin-top:6px}
@@ -109,6 +112,7 @@ label.fld{display:block;font-size:11px;letter-spacing:.08em;text-transform:upper
 .copy:hover{color:var(--acc)}
 .note{font-size:12px;color:var(--muted);margin:8px 0 0}
 .note.warn{color:var(--warn)}
+.note.error{color:var(--bad)}
 input[type=range]{accent-color:var(--acc);width:150px}
 
 /* stage */
@@ -286,11 +290,15 @@ footer a{text-decoration:none}
         <div class="step-h"><span class="step-n">02</span><h2>Rules</h2></div>
         <div class="row">
           <div><label class="fld" for="target">Winners</label><input type="number" id="target" min="1" max="1000" value="1"></div>
-          <div><label class="fld" for="duration">Spin length</label><div class="row" style="gap:8px"><input type="range" id="duration" min="3" max="15" step="1" value="7"><span class="mono" id="durVal">7s</span></div></div>
+          <div><label class="fld" for="duration">Spin length</label><div class="row" style="gap:8px"><input type="range" id="duration" min="3" max="30" step="1" value="15"><span class="mono" id="durVal">15s</span></div></div>
         </div>
         <div class="row">
           <label class="chk"><input type="checkbox" id="removeWinners" checked> Winners leave the pool (no repeat wins)</label>
           <label class="chk"><input type="checkbox" id="sound" checked> Tick sound</label>
+        </div>
+        <div id="motionOptions" hidden style="margin-top:10px">
+          <label class="chk"><input type="checkbox" id="animateAnyway" aria-describedby="motionNote"> Animate the wheel anyway</label>
+          <p class="note" id="motionNote"></p>
         </div>
         <p class="note">The winner count and pool rules freeze when you lock the list. Each entry is one chance; duplicate entries can win separately if kept.</p>
       </div>
@@ -321,9 +329,21 @@ footer a{text-decoration:none}
         <label class="fld" for="entropyMode">Randomness source · choose before locking</label>
         <select id="entropyMode"><option value="manual">Offline / paste a public value</option><option value="auto">Automatic public randomness · online</option></select>
         <div id="beaconOptions" hidden style="margin-top:12px">
-          <label class="fld" for="beaconDelay">Time to publish your commitment</label>
-          <select id="beaconDelay"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select>
-          <p class="note">Pins a future drand quicknet round when you lock. Publish the commitment before its scheduled time. The app fetches that exact round and verifies its signature automatically.</p>
+          <fieldset class="beacon-timing"><legend class="fld">Time to publish your commitment</legend><div class="row">
+            <label class="chk"><input type="radio" name="beaconTiming" id="beaconTimingDelay" value="delay" checked> Wait from locking</label>
+            <label class="chk"><input type="radio" name="beaconTiming" id="beaconTimingScheduled" value="scheduled"> Choose date &amp; time</label>
+          </div></fieldset>
+          <div id="beaconDelayFields"><label class="fld" for="beaconDelay">Publication window</label>
+            <select id="beaconDelay"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300" selected>5 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option><option value="3600">60 minutes</option></select>
+          </div>
+          <div id="beaconDateFields" hidden><label class="fld" for="beaconAt">Date &amp; time in your local timezone</label>
+            <input type="datetime-local" id="beaconAt" step="60" aria-describedby="beaconTimeZone beaconDateHelp beaconDateError">
+            <p class="note" id="beaconTimeZone"></p>
+            <p class="note" id="beaconDateHelp">Choose at least one minute in the future. We use the first beacon at or after this time, up to three seconds later.</p>
+            <p class="note error" id="beaconDateError" role="status" hidden></p>
+          </div>
+          <p class="note" id="beaconDeadline"></p>
+          <p class="note">Locking fixes the deadline and exact drand quicknet round. Publish your commitment <b>before</b> that deadline; spin any time <b>after</b> its randomness arrives and verifies.</p>
           <p class="note">Online mode contacts drand relays. They see your IP and request timing; your entries and seed are never sent. No account or API key is needed.</p>
           <p class="note" id="beaconStatus" aria-live="off"></p>
           <div class="row" style="margin-top:10px"><button class="btn sm" id="retryBeacon" hidden>Retry the committed round</button><button class="btn sm" id="beaconCommitCopy" hidden>Copy commitment</button></div>
@@ -597,7 +617,7 @@ def verify(a):
         for field, low, high in (("poolSize", 1, len(entries)), ("ctr", 0, 9999), ("uint32", 0, 2 ** 32 - 1), ("poolIndex", 0, len(entries) - 1), ("entryIndex", 0, len(entries) - 1)):
             require(integer(d.get(field), low, high), "Invalid " + field)
         anim = d.get("anim")
-        require(isinstance(anim, dict) and integer(anim.get("durationMs"), 3000, 15000) and integer(anim.get("turns"), 6, 9), "Invalid animation")
+        require(isinstance(anim, dict) and integer(anim.get("durationMs"), 3000, 30000) and integer(anim.get("turns"), 6, 9), "Invalid animation")
         frac = anim.get("frac")
         require(type(frac) in (int, float) and math.isfinite(frac) and 0.18 &lt;= frac &lt;= 0.82, "Invalid animation fraction")
         pool = [i for i in full_pool if i not in taken] if c["removeWinners"] else full_pool
@@ -932,13 +952,13 @@ class WheelView {
     this.cur = N ? idxAt(this.theta, N) : -1;
     if (this.valEl && !this.frozen) this.valEl.textContent = N ? this.vals[this.cur] : '—';
   }
-  spin(anim, poolIndex, sound) {
+  spin(anim, poolIndex, sound, forceMotion = false) {
     this.cancelSpin();
     return new Promise(res => {
       const N = this.vals.length, tf = finalTheta(anim, poolIndex, N), t0 = performance.now();
       let last = -1, lastTick = 0; this.hl = -1; this.frozen = false;
       if (!N) { this.frozen = true; res(false); return; }
-      if ((window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || anim.durationMs <= 0) {
+      if ((forceMotion !== true && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || anim.durationMs <= 0) {
         this.showResult(anim, poolIndex); res(true); return;
       }
       const run = { frame: null, resolve: res }; this._spinRun = run;
@@ -1078,7 +1098,7 @@ async function makeGif(info, onProgress) {
   for (let k = 1; k <= nF; k++) {
     const ms = Math.min(info.anim.durationMs, k * step), t = ms / info.anim.durationMs;
     renderGifFrame(g, bmp, info, tf * ease(t), -1, 'spin', ms / 1000);
-    gw.frame(quantize(g.getImageData(0, 0, GIF_W, GIF_H)), 7);
+    gw.frame(quantize(g.getImageData(0, 0, GIF_W, GIF_H)), Math.round((ms - (k - 1) * step) / 10));
     if (k % 3 === 0) { onProgress && onProgress((k + 1) / total); await sleep(0); }
   }
   renderGifFrame(g, bmp, info, tf, info.poolIndex, 'final', info.anim.durationMs / 1000);
@@ -1121,15 +1141,18 @@ function makeCertificate(info) {
 const KEY = 'fairspin.session.v1';
 const HISTORY_KEY = 'fairspin.history.v1', MAX_HISTORY_SESSIONS = 20, MAX_HISTORY_BYTES = 3 * 1024 * 1024;
 const BEACON_RELAYS = ['https://api.drand.sh', 'https://api2.drand.sh'];
+const BEACON_DELAYS = [60, 120, 300, 900, 1800, 3600], DEFAULT_BEACON_DELAY = 300;
 let beaconTimer = null, beaconController = null, beaconEpoch = 0, beaconFetching = false, beaconError = '';
+let beaconScheduleError = '';
+let beaconEditorValue = '', beaconEditorZone = TZ;
 let H = { version: 1, sessions: [] }, historyRaw = null, historyProblem = '';
-let S = null, spinning = false, exporting = false, restored = false, cancelExport = false;
+let S = null, spinning = false, animatingDraw = null, exporting = false, restored = false, cancelExport = false;
 let storageSnapshot = null, storageBlocked = false, recoveryData = null;
 let importRequest = 0, verifyRequest = 0, nextPreparedSession = '', verifyingHistoryKey = null;
 const gifCache = new Map();
 function newSession() {
   S = { v: 1, id: hex(crypto.getRandomValues(new Uint8Array(4))), createdAt: nowISO(), raw: '', source: 'pasted list',
-    opts: { dedupe: true, ci: false, target: 1, remove: true, duration: 7, sound: true, entropyMode: 'manual', beaconDelay: 60 },
+    opts: { dedupe: true, ci: false, target: 1, remove: true, duration: 15, sound: true, animateAnyway: false, entropyMode: 'manual', beaconDelay: DEFAULT_BEACON_DELAY, beaconTiming: 'delay', beaconAt: '' },
     locked: null, entropy: { value: '', note: '', enteredAt: null, lockedAt: null }, draws: [], events: [], exportedAt: -1 };
   logEv('session_created', { timezone: TZ });
 }
@@ -1173,8 +1196,10 @@ function load() {
 function validSession(j) {
   if (!j || j.v !== 1 || !/^[0-9a-f]{8}$/.test(j.id) || typeof j.raw !== 'string' || j.raw.length > MAX_INPUT_BYTES || typeof j.source !== 'string' || !Number.isFinite(Date.parse(j.createdAt))) return false;
   const o = j.opts, e = j.entropy;
-  if (!o || !['dedupe', 'ci', 'remove', 'sound'].every(k => typeof o[k] === 'boolean') || !Number.isSafeInteger(o.target) || o.target < 1 || o.target > MAX_DRAWS || !Number.isInteger(o.duration) || o.duration < 3 || o.duration > 15) return false;
-  if ((o.entropyMode !== undefined && !['manual', 'auto'].includes(o.entropyMode)) || (o.beaconDelay !== undefined && ![60, 120, 300].includes(o.beaconDelay))) return false;
+  if (!o || !['dedupe', 'ci', 'remove', 'sound'].every(k => typeof o[k] === 'boolean') || !Number.isSafeInteger(o.target) || o.target < 1 || o.target > MAX_DRAWS || !Number.isInteger(o.duration) || o.duration < 3 || o.duration > 30) return false;
+  if ((o.entropyMode !== undefined && !['manual', 'auto'].includes(o.entropyMode)) || (o.beaconDelay !== undefined && !BEACON_DELAYS.includes(o.beaconDelay))) return false;
+  if (o.animateAnyway !== undefined && typeof o.animateAnyway !== 'boolean') return false;
+  if ((o.beaconTiming !== undefined && !['delay', 'scheduled'].includes(o.beaconTiming)) || (o.beaconAt !== undefined && !canonicalBeaconTime(o.beaconAt))) return false;
   if (!e || typeof e.value !== 'string' || typeof e.note !== 'string' || e.value.length > MAX_ENTROPY_LENGTH || e.note.length > MAX_ENTROPY_LENGTH || !Array.isArray(j.draws) || !Array.isArray(j.events) || j.events.length > 20000 || !j.events.every(ev => ev && typeof ev.type === 'string' && typeof ev.at === 'string' && Number.isFinite(Date.parse(ev.at))) || !Number.isInteger(j.exportedAt) || j.exportedAt < -1 || j.exportedAt > j.draws.length) return false;
   if (!j.locked) return j.draws.length === 0;
   const L = j.locked;
@@ -1244,7 +1269,7 @@ function resetSessionView() {
   clearTimeout(statT); importRequest++; verifyRequest++; gifCache.clear(); csvRows = null; restored = false;
   el.entries.value = S.raw; el.entropy.value = ''; el.entropyNote.value = ''; el.target.value = S.opts.target;
   el.dedupe.checked = S.opts.dedupe; el.ci.checked = S.opts.ci; el.remove.checked = S.opts.remove; el.duration.value = S.opts.duration; el.durVal.textContent = S.opts.duration + 's'; el.sound.checked = S.opts.sound;
-  $('#entropyMode').value = S.opts.entropyMode || 'manual'; $('#beaconDelay').value = String(S.opts.beaconDelay || 60);
+  restoreBeaconControls();
   $('#csvOpts').hidden = true; $('#restoredNote').hidden = true; el.readout.classList.remove('win'); el.readLbl.textContent = 'Under pointer';
   $('#hSeedRaw').textContent = '•••••••••• hidden until you reveal it'; $('#revealSeed').textContent = 'reveal';
   clearVerification();
@@ -1259,7 +1284,7 @@ function startNextDraw(mode = 'remaining') {
   if (!archiveCurrent()) return false;
   // The complete audit is durable before replacing the current session.
   newSession(); S.raw = entries.join('\n'); S.source = mode === 'blank' ? 'pasted list' : `next draw from session ${previous.id} · ${mode === 'remaining' ? 'remaining entries' : 'all entries'}`;
-  S.opts = { ...previous.opts, target: entries.length && previous.opts.remove ? Math.min(previous.opts.target, entries.length) : previous.opts.target };
+  S.opts = { ...previous.opts, target: entries.length && previous.opts.remove ? Math.min(previous.opts.target, entries.length) : previous.opts.target, beaconTiming: 'delay', beaconAt: '' };
   logEv('previous_session_archived', { session: previous.id, seedSha256: previous.locked.seedHash, entries: mode });
   if (!save()) { S = previous; renderLog(); renderAll(); renderHistory(); toast('History was saved, but the next session could not be saved. Your completed draw is still open.'); return false; }
   resetSessionView(); $('#nav-draw').click(); el.entries.focus(); toast('Previous draw saved in History. Review the next draw, then lock and publish its new commitment.'); return true;
@@ -1272,28 +1297,109 @@ function stopBeacon() {
   beaconFetching = false; beaconError = '';
 }
 function beaconEntropy(plan, proof) { return `drand:quicknet:${plan.chainHash}:${plan.round}:${proof.randomness}`; }
-function makeBeaconPlan(at, delay) {
+function canonicalBeaconTime(value) {
+  return typeof value === 'string' && (value === '' || (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value));
+}
+function localDateValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), pad = n => String(n).padStart(2, '0');
+  return `${String(d.getFullYear()).padStart(4, '0')}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function parseLocalBeaconTime(value) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) throw new Error('Choose a complete local date and time.');
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()) || localDateValue(date.toISOString()) !== value) throw new Error('That local date or time does not exist. Check the date and any daylight-saving clock change.');
+  // Native Date chooses one occurrence of repeated wall-clock times. Reject
+  // those ambiguous inputs instead of silently choosing the wrong occurrence.
+  for (const days of [-2, -1, 1, 2]) {
+    const offset = new Date(date.getTime() + days * 86400000).getTimezoneOffset();
+    const alternative = new Date(date.getTime() + (offset - date.getTimezoneOffset()) * 60000);
+    if (alternative.getTime() !== date.getTime() && localDateValue(alternative.toISOString()) === value) throw new Error('This local time occurs twice when the clocks change. Choose another time or use a preset wait.');
+  }
+  return date.toISOString();
+}
+function setBeaconDateError(message) {
+  beaconScheduleError = message;
+  $('#beaconDateError').textContent = message; $('#beaconDateError').hidden = !message;
+  $('#beaconAt').setAttribute('aria-invalid', String(!!message));
+}
+function beaconLocalZone() { return Intl.DateTimeFormat().resolvedOptions().timeZone || TZ; }
+function syncBeaconEditorZone() {
+  const zone = beaconLocalZone(), input = $('#beaconAt');
+  if (zone !== beaconEditorZone) {
+    // Changing the device timezone changes presentation, never the saved
+    // instant. Leave any unparsed/invalid user edit intact for validation.
+    if (S.opts.beaconAt && input.value === beaconEditorValue) {
+      input.value = localDateValue(S.opts.beaconAt); beaconEditorValue = input.value;
+    }
+    beaconEditorZone = zone;
+  }
+  return zone;
+}
+function restoreBeaconControls() {
+  $('#entropyMode').value = S.opts.entropyMode || 'manual'; $('#beaconDelay').value = String(S.opts.beaconDelay || DEFAULT_BEACON_DELAY);
+  $('#beaconAt').value = localDateValue(S.opts.beaconAt); beaconEditorValue = $('#beaconAt').value; beaconEditorZone = beaconLocalZone(); setBeaconDateError('');
+}
+function scheduleBeaconInput() {
+  if (S.locked || !checkSession()) return false;
+  syncBeaconEditorZone();
+  if (S.opts.beaconAt && $('#beaconAt').value === beaconEditorValue) { setBeaconDateError(''); renderBeacon(); return true; }
+  try { S.opts.beaconAt = parseLocalBeaconTime($('#beaconAt').value); setBeaconDateError(''); }
+  catch (error) { S.opts.beaconAt = ''; setBeaconDateError(error.message); }
+  beaconEditorValue = $('#beaconAt').value;
+  save(); renderBeacon(); return !beaconScheduleError;
+}
+function beaconCountdown(seconds) {
+  let remaining = seconds; const units = [];
+  for (const [size, label] of [[86400, 'd'], [3600, 'h'], [60, 'm'], [1, 's']]) {
+    const count = Math.floor(remaining / size); remaining %= size;
+    if (count) units.push(`${count}${label}`);
+    if (units.length === 2) break;
+  }
+  return units.join(' ') || '0s';
+}
+function makeBeaconPlan(at, delay, targetAt) {
   const api = globalThis.FairSpinBeacon;
   if (!api) throw new Error('The bundled randomness verifier is unavailable.');
-  const round = api.roundAt(Math.ceil(Date.parse(at) / 1000) + delay) + 1;
+  let round;
+  if (targetAt !== undefined) {
+    if (!canonicalBeaconTime(targetAt) || !targetAt) throw new Error('Choose a complete local date and time before locking.');
+    const target = Date.parse(targetAt);
+    if (target < Date.parse(at) + 60000) throw new Error('Choose a date and time at least one minute in the future, then lock again.');
+    round = api.roundAt(Math.ceil(target / 1000));
+    if (api.timeOfRound(round) * 1000 < target) round++;
+  } else round = api.roundAt(Math.ceil(Date.parse(at) / 1000) + delay) + 1;
   const { chainHash, publicKey, scheme } = api.QUICKNET;
   return { provider: 'drand-quicknet', chainHash, publicKey, scheme, round, scheduledAt: new Date(api.timeOfRound(round) * 1000).toISOString() };
 }
 function renderBeacon() {
-  const plan = S.locked?.beacon, auto = !!plan || (!S.locked && S.opts.entropyMode === 'auto');
+  const plan = S.locked?.beacon, auto = !!plan || (!S.locked && S.opts.entropyMode === 'auto'), scheduled = S.opts.beaconTiming === 'scheduled';
+  const zone = syncBeaconEditorZone();
   $('#entropyMode').value = auto ? 'auto' : 'manual'; $('#entropyMode').disabled = !!S.locked || storageBlocked;
   $('#beaconOptions').hidden = !auto; $('#manualEntropy').hidden = auto;
-  $('#beaconDelay').disabled = !!S.locked || storageBlocked;
+  $('#beaconTimingDelay').checked = !scheduled; $('#beaconTimingScheduled').checked = scheduled;
+  $('#beaconTimingDelay').disabled = $('#beaconTimingScheduled').disabled = !!S.locked || storageBlocked;
+  $('#beaconDelayFields').hidden = scheduled; $('#beaconDateFields').hidden = !scheduled;
+  $('#beaconDelay').disabled = !!S.locked || storageBlocked || scheduled;
+  $('#beaconAt').disabled = !!S.locked || storageBlocked || !scheduled;
+  $('#beaconAt').min = localDateValue(new Date(Math.ceil((Date.now() + 60000) / 60000) * 60000).toISOString());
+  $('#beaconTimeZone').textContent = `Your local timezone: ${zone}. The saved schedule keeps the same instant if your timezone changes.`;
   $('#beaconCommitCopy').hidden = !plan;
   $('#retryBeacon').hidden = !plan || !!S.entropy.beacon || !beaconError;
   $('#retryBeacon').disabled = beaconFetching || storageBlocked;
   let message = 'Choose a publish window, then lock your list to reserve a future round.';
+  let preview = plan;
+  if (!plan && auto) {
+    try { preview = makeBeaconPlan(nowISO(), S.opts.beaconDelay || DEFAULT_BEACON_DELAY, scheduled ? S.opts.beaconAt || '' : undefined); }
+    catch (error) { if (scheduled) message = beaconScheduleError || error.message; }
+  }
+  $('#beaconDeadline').textContent = preview ? `${plan ? 'Fixed publication deadline' : 'Deadline if locked now'}: ${fmtLocal(preview.scheduledAt)} (${zone}) · ${fmtUTC(preview.scheduledAt)}.` : '';
   if (plan) {
     const seconds = Math.max(0, Math.ceil((Date.parse(plan.scheduledAt) - Date.now()) / 1000));
     if (S.entropy.beacon) message = `Signature verified · quicknet round ${plan.round.toLocaleString()}. Ready to spin. Publication timing must still be checked against your public post.`;
     else if (storageBlocked) message = 'This tab is paused because its saved session changed. Reload before continuing.';
     else if (beaconError) message = beaconError;
-    else if (seconds) message = `Round ${plan.round.toLocaleString()} arrives in ${seconds}s (${fmtUTC(plan.scheduledAt)}). Publish your commitment before then.`;
+    else if (seconds) message = `Round ${plan.round.toLocaleString()} arrives in ${beaconCountdown(seconds)}. Publish your commitment before the fixed deadline above.`;
     else message = `Fetching and verifying round ${plan.round.toLocaleString()}…`;
   }
   $('#beaconStatus').textContent = message;
@@ -1400,10 +1506,14 @@ function renderAll() {
   document.querySelector('label[for=csvFile]').style.opacity = L ? .42 : 1; document.querySelector('label[for=csvFile]').style.pointerEvents = L ? 'none' : '';
   el.remove.disabled = el.target.disabled = !!L || storageBlocked;
   el.duration.disabled = el.sound.disabled = busy || storageBlocked;
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  $('#motionOptions').hidden = !reduceMotion && !S.opts.animateAnyway;
+  $('#animateAnyway').checked = !!S.opts.animateAnyway; $('#animateAnyway').disabled = busy || storageBlocked;
+  $('#motionNote').textContent = reduceMotion ? (S.opts.animateAnyway ? 'Wheel animation is enabled despite your device’s reduced-motion preference. Confetti stays off.' : 'Your device requests reduced motion, so the winner appears immediately. Enable this option to watch the full spin; confetti stays off.') : 'Wheel animation is enabled for this session. This changes presentation only, never the winner.';
   el.lockBtn.disabled = !!L || storageBlocked || liveList().entries.length < 2;
   $('#clearBtn').disabled = busy;
   const complete = !!L && nd === tgt, remaining = L ? currentPoolIdx().length : 0;
-  $('#nextDrawPanel').hidden = !complete;
+  $('#nextDrawPanel').hidden = !complete || spinning;
   $('#nextSessionBtn').disabled = $('#nextEntries').disabled = busy || storageBlocked;
   el.spinBtn.hidden = false;
   const remainingOption = $('#nextEntries option[value="remaining"]');
@@ -1425,7 +1535,7 @@ function renderAll() {
   else if (exporting) { label = 'EXPORTING…'; hint = 'Preparing your download. Your results are saved.'; }
   else if (spinning) { label = 'SPINNING…'; hint = 'Result is already recorded in the audit log — the wheel is just catching up.'; }
   else if (!L) hint = liveList().entries.length < 2 ? 'Add at least 2 entries, then lock the list.' : 'Lock the list (step 3) to enable spinning.';
-  else if (L.beacon && !S.entropy.beacon) { label = beaconError ? 'WAITING · RETRY RANDOMNESS' : 'WAITING FOR PUBLIC RANDOMNESS'; hint = `Publish your commitment before ${fmtUTC(L.beacon.scheduledAt)}. The exact committed round is fetched and verified automatically; see step 4.`; }
+  else if (L.beacon && !S.entropy.beacon) { label = beaconError ? 'WAITING · RETRY RANDOMNESS' : 'WAITING FOR PUBLIC RANDOMNESS'; hint = `Publish before ${fmtLocal(L.beacon.scheduledAt)} (${beaconLocalZone()}) · ${fmtUTC(L.beacon.scheduledAt)}. Spin any time after verification; see step 4.`; }
   else if (complete) { can = true; hint = `All ${tgt} winner${tgt > 1 ? 's' : ''} drawn. Start next draw saves these results in History and opens a fresh draft. Choose its entries below.`; label = 'START NEXT DRAW'; }
   else if (pool.length === 0) hint = 'Pool is empty.';
   else { can = true; label = `${nd ? 'NEXT SPIN' : 'SPIN'} · WINNER ${nd + 1} OF ${tgt}`; hint = nd === 0 ? (S.entropy.value || el.entropy.value.trim() ? 'Public entropy will lock on this spin.' : 'No public entropy set — fine for casual draws, weaker proof.') : `${pool.length} left in pool. Click Next spin for winner ${nd + 1}; previous winners stay in the results and audit trail.`; }
@@ -1443,7 +1553,8 @@ function renderAll() {
 }
 function renderWinners() {
   if (!S.draws.length) { el.winList.innerHTML = '<div class="empty">Winners appear here — each with a replay, a timestamped GIF and a shareable certificate.</div>'; return; }
-  el.winList.innerHTML = S.draws.map(d => `
+  el.winList.innerHTML = S.draws.map(d => spinning && animatingDraw === d.n ? `
+    <div class="win-item"><div class="num">#${d.n}</div><div><div class="who">Drawing winner…</div><div class="meta">The result is recorded and will appear when the wheel stops.</div></div></div>` : `
     <div class="win-item" data-n="${d.n}">
       <div class="num">#${d.n}</div>
       <div><div class="who">${esc(d.winner)}</div><div class="meta">${fmtUTC(d.at)} · slot ${d.poolIndex + 1} of ${d.poolSize} · line ${d.entryIndex + 1} of list</div><div class="progress" hidden><i></i></div></div>
@@ -1480,12 +1591,17 @@ function lockList() {
   const maxWinners = Math.floor(MAX_VERIFY_WORK / enc.encode(entries.join('\n')).length);
   if (S.opts.remove && S.opts.target > maxWinners) { toast(`For a list this large, choose at most ${maxWinners} winners so the audit stays quick to verify.`); el.target.focus(); return; }
   const auto = S.opts.entropyMode === 'auto';
+  const scheduled = auto && S.opts.beaconTiming === 'scheduled';
+  if (scheduled) {
+    syncBeaconEditorZone();
+    if ($('#beaconAt').value !== beaconEditorValue && !scheduleBeaconInput()) { $('#beaconAt').focus(); toast(beaconScheduleError); return; }
+  }
   if (!auto && !setEntropy(el.entropy.value.trim(), el.entropyNote.value.trim())) return;
   const seed = hex(crypto.getRandomValues(new Uint8Array(32)));
   const at = nowISO();
   let beacon;
-  try { if (auto) beacon = makeBeaconPlan(at, S.opts.beaconDelay || 60); }
-  catch (e) { toast('Automatic verification is unavailable. Reload a complete copy of FairSpin.'); return; }
+  try { if (auto) beacon = makeBeaconPlan(at, S.opts.beaconDelay || DEFAULT_BEACON_DELAY, scheduled ? S.opts.beaconAt || '' : undefined); }
+  catch (e) { if (scheduled) { setBeaconDateError(e.message); $('#beaconAt').focus(); } toast(e.message); return; }
   if (auto) S.entropy = { value: '', note: '', enteredAt: null, lockedAt: null, beacon: null };
   S.locked = { at, entries, duplicatesRemoved: dupes, listHash: sha256hex(entries.join('\n')), seed, seedHash: sha256hex(unhex(seed)), removeWinners: S.opts.remove, winnersTarget: S.opts.target, source: S.source, dedupe: S.opts.dedupe, caseInsensitive: S.opts.ci };
   if (beacon) S.locked.beacon = beacon;
@@ -1521,11 +1637,11 @@ async function spin() {
   const r = computeDraw(L.seed, L.listHash, S.entropy.value, n, pool.length);
   const d = { n, at: nowISO(), poolSize: pool.length, poolSha256: sha256hex(vals.join('\n')), ctr: r.ctr, uint32: r.r, hmac: r.hmac, poolIndex: r.poolIndex, entryIndex: pool[r.poolIndex], winner: L.entries[pool[r.poolIndex]], anim: { durationMs: S.opts.duration * 1000, turns: r.turns, frac: r.frac } };
   S.draws.push(d); logEv('draw', { n, winner: d.winner, poolSize: d.poolSize, entryIndex: d.entryIndex, hmac: d.hmac }); save();
-  spinning = true; renderAll();
+  spinning = true; animatingDraw = d.n; renderAll();
   el.readout.classList.remove('win'); el.readLbl.textContent = 'Under pointer';
   stageView.setPool(vals);
-  await stageView.spin(d.anim, d.poolIndex, S.opts.sound && audioCtx);
-  spinning = false;
+  await stageView.spin(d.anim, d.poolIndex, S.opts.sound && audioCtx, !!S.opts.animateAnyway);
+  spinning = false; animatingDraw = null;
   el.readout.classList.add('win'); el.readLbl.textContent = `Winner #${n}`; el.readVal.textContent = d.winner;
   confetti(); renderAll();
   $('#announcement').textContent = `Winner ${n} of ${L.winnersTarget}: ${d.winner}`;
@@ -1536,7 +1652,7 @@ async function replay(d) {
   el.readout.classList.remove('win'); el.readLbl.textContent = `Replay #${d.n}`;
   stageView.setPool(info.vals);
   if (S.opts.sound && !audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
-  await stageView.spin(d.anim, d.poolIndex, S.opts.sound && audioCtx);
+  await stageView.spin(d.anim, d.poolIndex, S.opts.sound && audioCtx, !!S.opts.animateAnyway);
   logEv('replay', { n: d.n }); save();
   spinning = false; el.readout.classList.add('win'); el.readLbl.textContent = `Winner #${d.n}`; el.readVal.textContent = d.winner; renderAll();
 }
@@ -1641,7 +1757,7 @@ function auditShapeError(a) {
   for (let i = 0; i < a.draws.length; i++) {
     const d = a.draws[i];
     if (!obj(d) || d.n !== i + 1 || !date(d.at) || !str(d.winner, MAX_ENTRY_LENGTH) || !integer(d.poolSize, 1, E.length) || !hash(d.poolSha256) || !hash(d.hmac) || !integer(d.ctr, 0, 9999) || !integer(d.uint32, 0, 0xFFFFFFFF) || !integer(d.poolIndex, 0, E.length - 1) || !integer(d.entryIndex, 0, E.length - 1)) return `Invalid draw #${i + 1}; draws must be complete and numbered consecutively from 1.`;
-    if (!obj(d.anim) || !integer(d.anim.durationMs, 3000, 15000) || !integer(d.anim.turns, 6, 9) || typeof d.anim.frac !== 'number' || !Number.isFinite(d.anim.frac) || d.anim.frac < .18 || d.anim.frac > .82) return `Invalid animation for draw #${i + 1}.`;
+    if (!obj(d.anim) || !integer(d.anim.durationMs, 3000, 30000) || !integer(d.anim.turns, 6, 9) || typeof d.anim.frac !== 'number' || !Number.isFinite(d.anim.frac) || d.anim.frac < .18 || d.anim.frac > .82) return `Invalid animation for draw #${i + 1}.`;
   }
   return '';
 }
@@ -1722,7 +1838,7 @@ function init() {
   el.entries.value = S.raw; el.dedupe.checked = S.opts.dedupe; el.ci.checked = S.opts.ci; el.target.value = S.opts.target;
   el.duration.value = S.opts.duration; el.durVal.textContent = S.opts.duration + 's'; el.remove.checked = S.opts.remove; el.sound.checked = S.opts.sound;
   el.entropy.value = S.entropy.value; el.entropyNote.value = S.entropy.note;
-  $('#entropyMode').value = S.opts.entropyMode || 'manual'; $('#beaconDelay').value = String(S.opts.beaconDelay || 60);
+  restoreBeaconControls();
   if (restored) {
     const rn = $('#restoredNote'); rn.hidden = false;
     rn.innerHTML = `<span class="pill ok"><span class="dot"></span>Restored session from ${esc(fmtLocal(S.createdAt))}</span>`;
@@ -1766,13 +1882,19 @@ function init() {
     if (v === S.opts.target) return;
     S.opts.target = v; save(); renderAll();
   };
-  el.duration.oninput = () => { if (!checkSession()) return; S.opts.duration = Math.min(15, Math.max(3, Math.round(+el.duration.value) || 7)); el.durVal.textContent = S.opts.duration + 's'; save(); };
+  el.duration.oninput = () => { if (!checkSession()) return; S.opts.duration = Math.min(30, Math.max(3, Math.round(+el.duration.value) || 15)); el.durVal.textContent = S.opts.duration + 's'; save(); };
   el.remove.onchange = () => { if (S.locked || !checkSession()) return; S.opts.remove = el.remove.checked; save(); };
   el.sound.onchange = () => { if (!checkSession()) return; S.opts.sound = el.sound.checked; save(); };
+  $('#animateAnyway').onchange = () => { if (spinning || exporting || !checkSession()) return; S.opts.animateAnyway = $('#animateAnyway').checked; save(); renderAll(); };
+  if (window.matchMedia) window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () => renderAll());
   el.lockBtn.onclick = lockList;
   el.spinBtn.onclick = () => S.locked && S.draws.length === S.locked.winnersTarget ? startNextDraw($('#nextEntries').value) : spin();
   $('#entropyMode').onchange = () => { if (S.locked || !checkSession()) return; S.opts.entropyMode = $('#entropyMode').value === 'auto' ? 'auto' : 'manual'; save(); renderAll(); };
-  $('#beaconDelay').onchange = () => { if (S.locked || !checkSession()) return; S.opts.beaconDelay = [60, 120, 300].includes(+$('#beaconDelay').value) ? +$('#beaconDelay').value : 60; save(); };
+  $('#beaconDelay').onchange = () => { if (S.locked || !checkSession()) return; S.opts.beaconDelay = BEACON_DELAYS.includes(+$('#beaconDelay').value) ? +$('#beaconDelay').value : DEFAULT_BEACON_DELAY; save(); renderBeacon(); };
+  for (const [id, timing] of [['beaconTimingDelay', 'delay'], ['beaconTimingScheduled', 'scheduled']]) {
+    $('#' + id).onchange = () => { if (S.locked || !checkSession()) return; S.opts.beaconTiming = timing; if (timing === 'delay') setBeaconDateError(''); save(); renderBeacon(); };
+  }
+  $('#beaconAt').oninput = $('#beaconAt').onchange = scheduleBeaconInput;
   $('#retryBeacon').onclick = () => { if (S.locked?.beacon && !beaconFetching) { beaconError = ''; void fetchCommittedBeacon(); } };
   $('#beaconCommitCopy').onclick = () => { if (S.locked?.beacon) copyText(statement()); };
   el.entropy.onchange = el.entropyNote.onchange = () => { setEntropy(el.entropy.value.trim(), el.entropyNote.value.trim()); renderAll(); };
@@ -1895,7 +2017,7 @@ function init() {
     const b = e.target.closest('[data-vreplay]'); if (!b) return;
     const out = $('#vOut'), index = +b.dataset.vreplay, r = out._results?.[index]; if (!r || !out._audit) return;
     verifyView.frozen = false; $('#vReadLbl').textContent = `Replay #${r.d.n}`; $('#vReadout').classList.remove('win');
-    verifyView.setPool(verificationPool(out._audit, index)); if (!await verifyView.spin(r.d.anim, r.d.poolIndex, false)) return;
+    verifyView.setPool(verificationPool(out._audit, index)); if (!await verifyView.spin(r.d.anim, r.d.poolIndex, false, !!S.opts.animateAnyway)) return;
     verifyView.frozen = true; $('#vReadLbl').textContent = `Winner #${r.d.n}`; $('#vReadVal').textContent = r.d.winner; $('#vReadout').classList.add('win');
   });
   $('#copyPy').onclick = () => copyText($('#pyCode').textContent);

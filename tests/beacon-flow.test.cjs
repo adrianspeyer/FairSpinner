@@ -109,7 +109,7 @@ test('automatic locking pins a future round and removes pasted entropy before an
   assert.equal(app.node('#entropyMode').disabled, true);
   assert.equal(app.node('#entropy').disabled, true);
   assert.equal(app.node('#spinBtn').disabled, true);
-  assert.match(app.node('#beaconStatus').textContent, /63s/);
+  assert.match(app.node('#beaconStatus').textContent, /1m 3s/);
   assert.match(app.run('statement()'), /round 42/);
   assert.match(app.run('statement()'), /BEFORE/);
   assert.equal(app.requests.length, 0);
@@ -285,4 +285,238 @@ test('the completed main spin control archives results and opens the next editab
   assert.equal(app.run('S.draws.length'), 0);
   assert.equal(app.run('H.sessions[0].audit.session.id'), previousId);
   assert.equal(app.run('verifyAudit(H.sessions[0].audit).ok'), true);
+});
+
+async function inTimezone(zone, check) {
+  const previous = process.env.TZ;
+  process.env.TZ = zone;
+  try { return await check(); }
+  finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
+}
+
+function prepareSchedule(app) {
+  app.run('S.raw = "Ava\\nNoah\\nMia"; el.entries.value = S.raw; el.target.value = "1"; S.opts.sound = false; S.opts.entropyMode = "auto"; renderAll();');
+}
+
+async function chooseScheduledTime(app, localValue) {
+  app.node('#beaconTimingScheduled').checked = true;
+  await app.node('#beaconTimingScheduled').dispatch('change');
+  app.node('#beaconAt').value = localValue;
+  await app.node('#beaconAt').dispatch('input');
+}
+
+test('new sessions default to a five-minute wait and each displayed preset locks a valid future round', async () => {
+  const app = harness();
+  assert.equal(app.run('S.opts.beaconDelay'), 300);
+  assert.equal(app.run('S.opts.beaconTiming'), 'delay');
+  assert.equal(app.run('S.opts.beaconAt'), '');
+  assert.equal(app.node('#beaconDelay').value, '300');
+  const select = html.match(/<select id="beaconDelay">([\s\S]*?)<\/select>/)[1];
+  assert.deepEqual([...select.matchAll(/<option value="(\d+)"/g)].map((m) => +m[1]), [60, 120, 300, 900, 1800, 3600]);
+  for (const delay of [60, 120, 300, 900, 1800, 3600]) {
+    const draw = harness(); prepareSchedule(draw);
+    draw.node('#beaconDelay').value = String(delay);
+    await draw.node('#beaconDelay').dispatch('change');
+    draw.run('lockList()');
+    const scheduledAt = Date.parse(draw.run('S.locked.beacon.scheduledAt'));
+    assert.equal(draw.run('S.opts.beaconDelay'), delay);
+    assert.ok(scheduledAt >= initialTime + delay * 1000);
+    assert.ok(scheduledAt <= initialTime + delay * 1000 + 4000);
+    assert.equal(draw.run('verifyAudit(buildAudit()).ok'), true);
+    assert.equal(draw.requests.length, 0);
+  }
+});
+
+test('legacy saved sessions restore their original wait and exact committed round', () => {
+  const app = harness(); lock(app);
+  const saved = JSON.parse(app.storage.get(SESSION_KEY)), plan = saved.locked.beacon;
+  delete saved.opts.beaconTiming; delete saved.opts.beaconAt;
+  app.storage.set(SESSION_KEY, JSON.stringify(saved));
+  const restored = harness({ initial: app.storage });
+  assert.equal(restored.run('restored'), true);
+  assert.equal(restored.run('S.opts.beaconDelay'), 60);
+  assert.equal(restored.node('#beaconDelay').value, '60');
+  assert.deepEqual(plain(restored.run('S.locked.beacon')), plan);
+  assert.equal(restored.run('verifyAudit(buildAudit()).ok'), true);
+});
+
+test('custom local scheduling pins the first round at or after the chosen time and freezes all timing controls', () => inTimezone('America/Toronto', async () => {
+  const now = Date.parse('2026-11-06T18:00:00.000Z'), app = harness({ now });
+  prepareSchedule(app);
+  await chooseScheduledTime(app, '2026-11-06T14:30');
+  assert.equal(app.run('S.opts.beaconTiming'), 'scheduled');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-06T19:30:00.000Z');
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Toronto/);
+  app.run('lockList()');
+  const plan = plain(app.run('S.locked.beacon')), target = Date.parse('2026-11-06T19:30:00.000Z');
+  assert.ok(Date.parse(plan.scheduledAt) >= target);
+  assert.ok(Date.parse(plan.scheduledAt) - target < info.period * 1000);
+  for (const id of ['beaconTimingDelay', 'beaconTimingScheduled', 'beaconDelay', 'beaconAt']) assert.equal(app.node('#' + id).disabled, true, id);
+  assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
+  assert.match(app.run('statement()'), new RegExp(plan.scheduledAt.replace(/[.]/g, '\\.')));
+  assert.equal(app.requests.length, 0);
+  app.node('#beaconAt').value = '2026-11-07T14:30';
+  await app.node('#beaconAt').dispatch('input');
+  assert.deepEqual(plain(app.run('S.locked.beacon')), plan);
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-06T19:30:00.000Z');
+}));
+
+test('a saved custom deadline preserves its instant when reopened in a different local timezone', async () => {
+  let storage, plan;
+  const now = Date.parse('2026-11-06T18:00:00.000Z');
+  await inTimezone('America/Toronto', async () => {
+    const app = harness({ now }); prepareSchedule(app);
+    await chooseScheduledTime(app, '2026-11-06T14:30'); app.run('lockList()');
+    storage = app.storage; plan = plain(app.run('S.locked.beacon'));
+  });
+  await inTimezone('America/Vancouver', () => {
+    const restored = harness({ initial: storage, now: now + 30000 });
+    assert.equal(restored.run('restored'), true);
+    assert.deepEqual(plain(restored.run('S.locked.beacon')), plan);
+    assert.equal(restored.run('S.opts.beaconAt'), '2026-11-06T19:30:00.000Z');
+    assert.equal(restored.node('#beaconAt').value, '2026-11-06T11:30');
+    assert.match(restored.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+    assert.equal(restored.requests.length, 0);
+  });
+});
+
+test('a custom draft reopened in another timezone still locks the originally chosen instant', async () => {
+  const now = Date.parse('2026-11-06T18:00:00.000Z');
+  let storage;
+  await inTimezone('America/Toronto', async () => {
+    const app = harness({ now }); prepareSchedule(app);
+    await chooseScheduledTime(app, '2026-11-06T14:30'); storage = app.storage;
+  });
+  await inTimezone('Asia/Kolkata', () => {
+    const app = harness({ initial: storage, now });
+    assert.equal(app.run('restored'), true);
+    assert.equal(app.node('#beaconAt').value, '2026-11-07T01:00');
+    app.run('lockList()');
+    assert.equal(app.run('S.opts.beaconAt'), '2026-11-06T19:30:00.000Z');
+    assert.equal(app.run('S.locked.beacon.scheduledAt'), '2026-11-06T19:30:00.000Z');
+    assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
+  });
+});
+
+test('changing the operating-system timezone in the same tab cannot reinterpret an untouched custom deadline at lock', () => inTimezone('America/Toronto', async () => {
+  const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
+  await chooseScheduledTime(app, '2026-11-07T18:00');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-07T23:00:00.000Z');
+  process.env.TZ = 'America/Vancouver';
+  app.run('lockList()');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-07T23:00:00.000Z');
+  assert.equal(app.run('S.locked.beacon.scheduledAt'), '2026-11-07T23:00:00.000Z');
+  assert.equal(app.node('#beaconAt').value, '2026-11-07T15:00');
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  assert.match(app.node('#beaconDeadline').textContent, /America\/Vancouver/);
+  assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
+}));
+
+test('same-tab timezone changes refresh the displayed deadline, and later edits use the new local timezone', () => inTimezone('America/Toronto', async () => {
+  const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
+  await chooseScheduledTime(app, '2026-11-07T18:00');
+  process.env.TZ = 'America/Vancouver';
+  app.run('renderAll()');
+  assert.equal(app.node('#beaconAt').value, '2026-11-07T15:00');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-07T23:00:00.000Z');
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  app.node('#beaconAt').value = '2026-11-07T17:00';
+  await app.node('#beaconAt').dispatch('input');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-08T01:00:00.000Z');
+  app.run('lockList()');
+  assert.equal(app.run('S.locked.beacon.scheduledAt'), '2026-11-08T01:00:00.000Z');
+  assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
+}));
+
+test('an input event immediately after a same-tab timezone change keeps the new edit and interprets it locally', () => inTimezone('America/Toronto', async () => {
+  const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
+  await chooseScheduledTime(app, '2026-11-07T18:00');
+  process.env.TZ = 'America/Vancouver';
+  app.node('#beaconAt').value = '2026-11-07T17:00';
+  await app.node('#beaconAt').dispatch('input');
+  assert.equal(app.node('#beaconAt').value, '2026-11-07T17:00');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-08T01:00:00.000Z');
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  app.run('lockList()');
+  assert.equal(app.run('S.locked.beacon.scheduledAt'), '2026-11-08T01:00:00.000Z');
+}));
+
+test('a same-tab timezone refresh preserves an invalid edit and its error instead of restoring an older date', () => inTimezone('America/Toronto', async () => {
+  const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
+  await chooseScheduledTime(app, '2026-11-07T18:00');
+  app.node('#beaconAt').value = '2027-03-14T02:30';
+  await app.node('#beaconAt').dispatch('input');
+  assert.equal(app.run('S.opts.beaconAt'), '');
+  const error = app.node('#beaconDateError').textContent;
+  assert.ok(error);
+  process.env.TZ = 'America/Vancouver'; app.run('renderAll()');
+  assert.equal(app.node('#beaconAt').value, '2027-03-14T02:30');
+  assert.equal(app.run('S.opts.beaconAt'), '');
+  assert.equal(app.node('#beaconDateError').textContent, error);
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  app.run('lockList()'); assert.equal(app.run('S.locked'), null);
+}));
+
+test('custom round selection includes a round exactly at the requested instant and rounds later times upward', () => {
+  const app = harness();
+  for (const target of [roundTime - 1000, roundTime]) {
+    const plan = app.run('makeBeaconPlan(new Date(testInput.at).toISOString(), 300, new Date(testInput.target).toISOString())', { at: initialTime, target });
+    assert.equal(plan.round, 42);
+    assert.equal(Date.parse(plan.scheduledAt), roundTime);
+  }
+  const plan = app.run('makeBeaconPlan(new Date(testInput.at).toISOString(), 300, new Date(testInput.target).toISOString())', { at: initialTime, target: roundTime + 1 });
+  assert.equal(plan.round, 43);
+  assert.equal(Date.parse(plan.scheduledAt), roundTime + 3000);
+});
+
+test('custom dates reject invalid calendar values, missing local times and repeated local times', () => inTimezone('America/Toronto', () => {
+  const app = harness();
+  assert.equal(app.run('parseLocalBeaconTime(testInput)', '2026-11-06T14:30'), '2026-11-06T19:30:00.000Z');
+  for (const value of ['', 'not-a-date', '2026-02-30T14:30', '2026-13-01T14:30', '2026-03-08T02:30', '2026-11-01T01:30']) {
+    assert.throws(() => app.run('parseLocalBeaconTime(testInput)', value), undefined, value);
+  }
+}));
+
+test('local-time validation also handles half-hour daylight-saving transitions', () => inTimezone('Australia/Lord_Howe', () => {
+  const app = harness();
+  assert.equal(app.run('parseLocalBeaconTime(testInput)', '2026-10-04T03:00'), '2026-10-03T16:00:00.000Z');
+  for (const value of ['2026-10-04T02:15', '2026-04-05T01:45']) assert.throws(() => app.run('parseLocalBeaconTime(testInput)', value), undefined, value);
+}));
+
+test('empty, invalid, past and too-soon custom schedules cannot lock or silently fall back to a preset', () => inTimezone('America/Toronto', async () => {
+  const now = Date.parse('2026-11-06T18:00:30.000Z');
+  for (const value of ['', '2026-02-30T14:30', '2026-11-06T12:59', '2026-11-06T13:01']) {
+    const app = harness({ now }); prepareSchedule(app);
+    await chooseScheduledTime(app, value);
+    app.run('lockList()');
+    assert.equal(app.run('S.locked'), null, value);
+    assert.equal(app.run('S.opts.beaconTiming'), 'scheduled');
+    assert.equal(app.run('S.draws.length'), 0);
+    assert.equal(app.requests.length, 0);
+    assert.equal(JSON.parse(app.storage.get(SESSION_KEY)).locked, null);
+    assert.ok(app.node('#beaconDateError').textContent, 'the rejected date has an inline explanation');
+  }
+}));
+
+test('a custom draft that becomes too close while preparing entries is rechecked at lock', () => inTimezone('America/Toronto', async () => {
+  const now = Date.parse('2026-11-06T18:00:00.000Z'), app = harness({ now });
+  prepareSchedule(app); await chooseScheduledTime(app, '2026-11-06T13:02');
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-06T18:02:00.000Z');
+  app.time(now + 61000); app.run('lockList()');
+  assert.equal(app.run('S.locked'), null);
+  assert.equal(app.run('S.opts.beaconAt'), '2026-11-06T18:02:00.000Z');
+  assert.equal(app.requests.length, 0);
+}));
+
+test('starting the next draw clears an old custom date while retaining the chosen wait preset', async () => {
+  const app = harness(); lock(app, false);
+  app.run('S.opts.beaconTiming = "scheduled"; S.opts.beaconAt = new Date(testInput).toISOString(); S.opts.beaconDelay = 900;', roundTime);
+  await app.run('spin()');
+  assert.equal(app.run('startNextDraw("all")'), true);
+  assert.equal(app.run('S.opts.beaconTiming'), 'delay');
+  assert.equal(app.run('S.opts.beaconAt'), '');
+  assert.equal(app.run('S.opts.beaconDelay'), 900);
+  assert.equal(app.node('#beaconAt').value, '');
+  assert.equal(app.node('#beaconDelay').value, '900');
+  assert.equal(app.node('#beaconTimingDelay').checked, true);
 });

@@ -10,8 +10,8 @@ A privacy-first giveaway and contest spinner with cryptographic, independently v
 
 1. Open [`index.html`](./index.html) in a modern browser (Chrome, Edge, Firefox, or Safari). Double-clicking the file works, too.
 2. Paste entries, one per line, or import a CSV/TXT file.
-3. Set the rules. In **Public entropy**, keep **Offline / paste a public value**, or select **Automatic public randomness · online** before locking.
-4. Click **Lock list & generate seed** and publish the commitment. In automatic mode, publish before the countdown ends and wait for the verified beacon. In manual mode, paste the future public value you announced in advance.
+3. Set the rules. In **Public entropy**, keep **Offline / paste a public value**, or select **Automatic public randomness · online** before locking. Automatic mode offers a preset wait (five minutes by default) or a date and time in your local timezone.
+4. Click **Lock list & generate seed** and publish the commitment. In automatic mode, publish before the displayed deadline; you can spin any time after the beacon arrives and verifies. In manual mode, paste the future public value you announced in advance.
 5. Spin. Then download the audit log, GIFs and certificates before you clear the session. Audit files contain all entries and the secret seed; review them before sharing.
 6. Use the main button directly below the wheel: **Next spin** selects the next committed winner; **Start next draw** saves a completed session to History and opens a fresh draft. Choose remaining entries, all entries, or a new list in the panel beneath it. The next session requires a new commitment.
 
@@ -40,11 +40,12 @@ You can fork the repository or use **Download ZIP** on the app page to get your 
 
 - **Input:** paste a list, import CSV/TXT, or drag and drop a file. For CSVs, pick the column (it guesses wallet/address, then email, then name). Comma, tab and semicolon separators are detected automatically.
 - **Duplicates:** optional removal, with an "ignore case" option for addresses like `0xABC…` and `0xabc…`.
-- **Rules:** the winner count and removal rule freeze at commitment time. Spin length (3–15 s) and tick sound remain presentation settings. Each retained duplicate is a separate eligible slot.
+- **Rules:** the winner count and removal rule freeze at commitment time. Spin length defaults to **15 seconds** for new sessions and is adjustable from **3–30 seconds**, including an optional full 30-second spin; it and tick sound remain presentation settings. Each retained duplicate is a separate eligible slot.
+- **Motion preferences:** FairSpin respects your device's Reduce Motion setting by revealing the winner without spinning. To see the wheel animation, opt in with **Animate the wheel anyway**. This option affects the wheel only; confetti still respects Reduce Motion.
 - **Commit–reveal fairness:** the list and the seed are fingerprinted (SHA-256) before any spin.
 - **Public entropy:** offline/manual input remains the default. Automatic mode pins a future drand quicknet round at lock, fetches only that round, verifies its BLS signature against the pinned network key, and mixes its randomness into every draw in that session.
 - **Spinning wheel:** labels for up to 64 entries. Larger lists show color bands with a live "under pointer" readout. Tested with 5,000 entries.
-- **Result recorded first:** each winner is computed and saved *before* the wheel animates, so a saved draw survives a refresh mid-spin. A persistent warning explains when browser storage is unavailable; export before closing in that case.
+- **Result recorded first:** each winner is computed and saved *before* the wheel animates, so a saved draw survives a refresh mid-spin. The Results panel reveals the winner when the wheel stops. A persistent warning explains when browser storage is unavailable; export before closing in that case.
 - **Exports:**
   - **Audit log (JSON):** every input, every draw, the revealed seed, a timestamped event log, and an integrity hash.
   - **GIF per draw:** the full spin with a UTC timestamp, the list and seed fingerprints, a running timer and a winner frame.
@@ -72,11 +73,15 @@ The wheel animation is cosmetic: it is driven by the result and always lands in 
 
 ## Automatic public randomness
 
-1. Before locking, choose **Automatic public randomness · online** in step 4. Choose a **1, 2, or 5 minute** publication window; one minute is the default.
-2. Lock the list. FairSpin fixes the exact future **drand quicknet** round, network identity, scheduled time, list, seed commitment and rules. The source and round cannot be changed in that session.
+1. Before locking, choose **Automatic public randomness · online** in step 4. Select **Wait from locking** for a preset wait, or **Choose date & time** for a specific deadline. Preset waits are **1, 2, 5, 15, 30, or 60 minutes**, with **5 minutes** selected for new sessions. A chosen date and time uses your device's local timezone and must be at least one minute in the future when you lock.
+2. Lock the list. FairSpin fixes the exact future **drand quicknet** round, network identity, scheduled time, list, seed commitment and rules. A custom date and time selects the first round at or after that instant. Review the exact deadline shown in local time and UTC; the source and round cannot be changed in that session.
 3. Copy and publicly post the complete commitment **before the scheduled round time**. Keep the device clock accurate. The countdown is guidance; FairSpin cannot independently prove when you posted the commitment.
 4. When the round is due, FairSpin fetches it from `api.drand.sh`, with `api2.drand.sh` as a relay fallback for **the same round**. It checks the round number, BLS signature and derived randomness locally, then enables Spin.
 5. If the request fails, choose **Retry the committed round** in step 4. There is no silent switch to the latest round, another source, or manual randomness. Refreshing resumes the original saved round; clearing or starting a fresh draw cancels old requests.
+
+**The deadline is for publishing the commitment, not for completing the spin.** You can spin any time after the committed beacon has arrived and verified. A longer window gives you more time to prepare and publish; it does not strengthen the cryptography.
+
+A saved custom date and time retains its absolute instant across refreshes, including when your device timezone changes. Times skipped or repeated during a daylight-saving change are rejected; choose an unambiguous local time or use a preset wait. A locked draw always retains its original round. **Start next draw** clears the custom date and returns to the previous preset wait so an expired schedule is not reused; choose a new date if needed.
 
 The seed and entries never leave the browser. Relay providers see normal connection metadata such as IP address and request timing. Requests omit credentials and referrers, reject redirects, use timeouts and bound response size. Offline/manual mode makes no beacon requests. If a browser blocks online requests from a local file, use the hosted GitHub Pages copy or use manual mode in a fresh session.
 
@@ -173,7 +178,7 @@ npm run check:beacon
 
 `package-lock.json` pins Noble Curves, Noble Hashes and esbuild. The generated bundle retains the full MIT notice; commit both the reviewed bundle and synchronized HTML. `npm audit` checks dependency advisories; it does not replace cryptographic review.
 
-Regression tests cover independent SHA-256/HMAC vectors, rejection sampling, tampered audits, Python verification, session recovery, stale-tab protection, CSV parsing, reduced-motion/cancellation, byte-for-byte GIF decoding, genuine drand beacon signatures, automatic-audit tampering, future-round binding, fetch cancellation/retry behavior, and light/dark primary-button contrast. See [SECURITY.md](./SECURITY.md) for review scope and remaining trust boundaries. Browser visual QA is a separate release check; mocked DOM tests do not establish browser compatibility or visual correctness.
+Regression tests cover independent SHA-256/HMAC vectors, rejection sampling, tampered audits, Python verification, session recovery, stale-tab protection, CSV parsing, reduced-motion/cancellation, byte-for-byte GIF decoding, genuine drand beacon signatures, automatic-audit tampering, future-round binding, local-time scheduling, fetch cancellation/retry behavior, and light/dark primary-button contrast. See [SECURITY.md](./SECURITY.md) for review scope and remaining trust boundaries. Browser visual QA is a separate release check; mocked DOM tests do not establish browser compatibility or visual correctness.
 
 ### Keeping the public repository clean
 

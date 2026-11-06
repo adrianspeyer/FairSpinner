@@ -169,7 +169,7 @@ def verify(a):
         for field, low, high in (("poolSize", 1, len(entries)), ("ctr", 0, 9999), ("uint32", 0, 2 ** 32 - 1), ("poolIndex", 0, len(entries) - 1), ("entryIndex", 0, len(entries) - 1)):
             require(integer(d.get(field), low, high), "Invalid " + field)
         anim = d.get("anim")
-        require(isinstance(anim, dict) and integer(anim.get("durationMs"), 3000, 15000) and integer(anim.get("turns"), 6, 9), "Invalid animation")
+        require(isinstance(anim, dict) and integer(anim.get("durationMs"), 3000, 30000) and integer(anim.get("turns"), 6, 9), "Invalid animation")
         frac = anim.get("frac")
         require(type(frac) in (int, float) and math.isfinite(frac) and 0.18 <= frac <= 0.82, "Invalid animation fraction")
         pool = [i for i in full_pool if i not in taken] if c["removeWinners"] else full_pool

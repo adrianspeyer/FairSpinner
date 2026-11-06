@@ -116,6 +116,42 @@ test('reduced-motion wheel reveals the actual winner with no animation frames', 
   assert.equal(h.frames.size, 0);
 });
 
+test('reduced-motion remains honored unless the animation override is explicitly true', async () => {
+  for (const override of [false, undefined, null, 1, 'true']) {
+    const h = wheelHarness(); h.reduced(true);
+    assert.equal(await h.run('testWheel.spin(testInput.anim, 2, false, testInput.override)', { anim: { ...animation, durationMs: 30000 }, override }), true);
+    assert.equal(h.run('testReadout.textContent'), 'Carol');
+    assert.equal(h.frames.size, 0);
+  }
+});
+
+test('explicitly choosing full animation runs the entire 30-second wheel despite reduced-motion preference', async () => {
+  const h = wheelHarness(); h.reduced(true);
+  const pending = h.run('testWheel.spin(testInput, 1, false, true)', { ...animation, durationMs: 30000 });
+  assert.equal(h.frames.size, 1);
+  h.advance(29999);
+  assert.equal(h.frames.size, 1);
+  assert.equal(h.run('testWheel.frozen'), false);
+  h.advance(1);
+  assert.equal(await pending, true);
+  assert.equal(h.run('testReadout.textContent'), 'Bob');
+  assert.equal(h.frames.size, 0);
+});
+
+test('a 30-second wheel keeps animating until the full requested duration', async () => {
+  const h = wheelHarness();
+  const pending = h.run('testWheel.spin(testInput, 1, false)', { ...animation, durationMs: 30000 });
+  h.advance(15000);
+  assert.equal(h.frames.size, 1);
+  assert.equal(h.run('testWheel.frozen'), false);
+  h.advance(14999);
+  assert.equal(h.frames.size, 1);
+  h.advance(1);
+  assert.equal(await pending, true);
+  assert.equal(h.run('testReadout.textContent'), 'Bob');
+  assert.equal(h.frames.size, 0);
+});
+
 test('completed winner text survives redraws and fractional CSS resize updates', async () => {
   const h = wheelHarness();
   const pending = h.run('testWheel.spin(testInput, 1, false)', animation);
@@ -350,6 +386,118 @@ function appHarness(storage = new Map()) {
   };
 }
 
+test('new sessions default to a 15-second spin and preserve it in saved audits', async () => {
+  const app = appHarness();
+  assert.equal(app.run('S.opts.duration'), 15);
+  assert.equal(Number(app.elements.get('duration').value), 15);
+  await app.click('sampleBtn'); await app.click('lockBtn'); await app.click('spinBtn');
+  assert.equal(app.run('S.draws[0].anim.durationMs'), 15000);
+  assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
+  const restored = appHarness(app.storage);
+  assert.equal(restored.run('restored'), true);
+  assert.equal(restored.run('S.draws[0].anim.durationMs'), 15000);
+});
+
+test('the motion override is off by default and requires a saved explicit checkbox choice', async () => {
+  const app = appHarness();
+  assert.equal(app.run('S.opts.animateAnyway'), false);
+  assert.equal(app.elements.get('animateAnyway').checked, false);
+  assert.equal(app.elements.get('motionOptions').hidden, false, 'device reduced-motion preference exposes the explanatory option');
+  app.elements.get('animateAnyway').checked = true;
+  await app.elements.get('animateAnyway').dispatch('change');
+  assert.equal(app.run('S.opts.animateAnyway'), true);
+  assert.equal(JSON.parse(app.storage.get('fairspin.session.v1')).opts.animateAnyway, true);
+  const restored = appHarness(app.storage);
+  assert.equal(restored.run('restored'), true);
+  assert.equal(restored.elements.get('animateAnyway').checked, true);
+  await restored.click('clearBtn');
+  assert.equal(restored.run('S.opts.animateAnyway'), false);
+  assert.equal(restored.elements.get('animateAnyway').checked, false);
+});
+
+test('legacy sessions without an animation override restore safely and malformed opt-ins are rejected', () => {
+  const app = appHarness(), saved = JSON.parse(app.storage.get('fairspin.session.v1'));
+  delete saved.opts.animateAnyway;
+  app.storage.set('fairspin.session.v1', JSON.stringify(saved));
+  const restored = appHarness(app.storage);
+  assert.equal(restored.run('restored'), true);
+  assert.equal(restored.elements.get('animateAnyway').checked, false);
+  for (const value of [undefined, false, true]) assert.equal(restored.run('validSession({ ...S, opts: { ...S.opts, animateAnyway: testInput } })', value), true);
+  for (const value of [null, 'true', 'false', 1, 0, {}, []]) assert.equal(restored.run('validSession({ ...S, opts: { ...S.opts, animateAnyway: testInput } })', value), false);
+});
+
+test('the explicit motion checkbox controls full-duration draw and replay without changing the saved result', async () => {
+  const app = appHarness();
+  await app.click('sampleBtn');
+  app.elements.get('duration').value = '30'; await app.elements.get('duration').dispatch('input');
+  await app.click('lockBtn');
+  app.elements.get('animateAnyway').checked = true;
+  await app.elements.get('animateAnyway').dispatch('change');
+  const pending = app.click('spinBtn');
+  assert.equal(app.run('spinning'), true);
+  assert.equal(app.elements.get('animateAnyway').disabled, true);
+  assert.equal(app.run('S.draws.length'), 1, 'winner is still saved before animation');
+  const winner = app.run('S.draws[0].winner');
+  app.advance(29999);
+  assert.equal(app.run('spinning'), true);
+  assert.equal(app.frames.size, 1);
+  app.advance(1); await pending;
+  assert.equal(app.run('spinning'), false);
+  assert.equal(app.elements.get('readVal').textContent, winner);
+  assert.equal(app.frames.size, 0, 'confetti still respects the device preference');
+  const replay = app.run('replay(S.draws[0])');
+  app.advance(29999); assert.equal(app.run('spinning'), true);
+  app.advance(1); await replay;
+  assert.equal(app.run('S.draws.length'), 1);
+  assert.equal(app.elements.get('readVal').textContent, winner);
+  assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
+});
+
+test('a new winner stays concealed in Results until the spin finishes while its audit is already saved', async () => {
+  const app = appHarness();
+  app.run('S.raw = "Hidden Entrant Alpha\\nHidden Entrant Beta\\nHidden Entrant Gamma"; el.entries.value = S.raw; renderStats(); renderAll();');
+  app.elements.get('duration').value = '30'; await app.elements.get('duration').dispatch('input');
+  await app.click('lockBtn');
+  app.elements.get('animateAnyway').checked = true;
+  await app.elements.get('animateAnyway').dispatch('change');
+  const pending = app.click('spinBtn');
+  const winner = app.run('S.draws[0].winner');
+  assert.equal(JSON.parse(app.storage.get('fairspin.session.v1')).draws[0].winner, winner);
+  assert.equal(app.run('buildAudit().draws[0].winner'), winner);
+  assert.equal(app.elements.get('winList').innerHTML.includes(winner), false);
+  assert.equal(app.elements.get('nextDrawPanel').hidden, true);
+  app.advance(29999);
+  assert.equal(app.elements.get('winList').innerHTML.includes(winner), false);
+  assert.equal(app.elements.get('nextDrawPanel').hidden, true);
+  app.advance(1); await pending;
+  assert.equal(app.elements.get('winList').innerHTML.includes(winner), true);
+  assert.equal(app.elements.get('nextDrawPanel').hidden, false);
+  const replay = app.run('replay(S.draws[0])');
+  assert.equal(app.elements.get('winList').innerHTML.includes(winner), true, 'replaying a known result does not conceal it again');
+  app.advance(30000); await replay;
+  assert.equal(app.run('S.draws.length'), 1);
+});
+
+test('30-second GIF exports encode exactly 30 seconds of spin plus intro and result cards', async () => {
+  const h = harness();
+  // Keep the real frame timeline and encoder, with a single synthetic pixel
+  // instead of rasterizing hundreds of full-size wheel frames.
+  const gifSource = source.match(/async function makeGif\(info, onProgress\) \{[\s\S]*?\n\}\n/)[0];
+  const runtime = vm.createContext({
+    Blob, GIF_W: 1, GIF_H: 1, GIF_R: 1, GifWriter: h.run('GifWriter'), PALETTE: h.run('PALETTE'),
+    document: { createElement: () => ({ getContext: () => ({ getImageData: () => ({}) }) }) },
+    makeWheelBitmap: () => ({}), finalTheta: () => 1, renderGifFrame() {},
+    quantize: () => new Uint8Array([1]), ease: (t) => t, sleep: async () => {},
+  });
+  vm.runInContext(gifSource, runtime);
+  runtime.info = { n: 1, at: '2026-11-06T20:00:00.000Z', winner: 'A', vals: ['A', 'B'], poolIndex: 0, listHash: 'test', seedHash: 'test', hmac: 'test', anim: { durationMs: 30000 } };
+  const blob = await vm.runInContext('makeGif(info)', runtime);
+  const decoded = decodeGif(Buffer.from(await blob.arrayBuffer()));
+  assert.equal(decoded.frames[0].delay, 90);
+  assert.equal(decoded.frames.at(-1).delay, 450);
+  assert.equal(decoded.frames.slice(1, -1).reduce((sum, frame) => sum + frame.delay, 0), 3000);
+});
+
 test('application initializes, loads sample, locks rules, draws, verifies and restores persisted results', async () => {
   const app = appHarness();
   assert.equal(app.run('S.draws.length'), 0);
@@ -473,8 +621,8 @@ test('clear resets controls, concealed seed and verification state', async () =>
   assert.notEqual(app.run('S.id'), oldId);
   assert.equal(app.run('S.locked'), null);
   assert.equal(app.run('S.draws.length'), 0);
-  assert.equal(Number(app.elements.get('duration').value), 7);
-  assert.equal(app.elements.get('durVal').textContent, '7s');
+  assert.equal(Number(app.elements.get('duration').value), 15);
+  assert.equal(app.elements.get('durVal').textContent, '15s');
   assert.equal(app.elements.get('sound').checked, true);
   assert.equal(app.elements.get('revealSeed').textContent, 'reveal');
   assert.match(app.elements.get('hSeedRaw').textContent, /hidden/);
@@ -491,7 +639,7 @@ test('clear is blocked while a spin or export is active', async () => {
   assert.equal(app.elements.get('clearBtn').disabled, true);
   app.run("$('#clearBtn').onclick()");
   assert.equal(app.run('S.id'), id);
-  app.advance(7000); await pending;
+  app.advance(15000); await pending;
   app.run('exporting = true; renderAll()');
   app.run("$('#clearBtn').onclick()");
   assert.equal(app.run('S.id'), id);
