@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-THXPlp6a7zFH1KdKho9S3cYwc4PvVjNVPNekXeOQUJc='; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FairSpin — verifiable random draw</title>
 <meta name="description" content="Run a transparent, cryptographically verifiable giveaway draw. Free, private, and works offline.">
 <meta name="theme-color" content="#0c0e13">
+<meta name="referrer" content="no-referrer">
 <script>
 try {
   document.documentElement.dataset.theme = localStorage.getItem('fairspin-theme') ||
@@ -34,6 +36,7 @@ try {
   --glow:rgba(122,161,65,.09); --glow2:rgba(63,145,180,.05);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans)}
 html{scroll-behavior:smooth}
 body{min-height:100vh;background:
@@ -62,7 +65,7 @@ nav.tabs button[aria-selected="true"]{color:var(--text);border-color:var(--line)
 .btn:hover:not(:disabled){border-color:var(--hover-line);background:var(--hover)}
 .btn:disabled{opacity:.42;cursor:not-allowed}
 .btn.primary{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
-.btn.primary:hover:not(:disabled){background:#d6f78a;border-color:#d6f78a}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
 .btn.ghost{background:transparent}
 .btn.danger{color:var(--bad)}
 .btn.sm{padding:5px 9px;font-size:12px;border-radius:7px}
@@ -70,6 +73,7 @@ nav.tabs button[aria-selected="true"]{color:var(--text);border-color:var(--line)
 main{max-width:1320px;margin:0 auto;padding:22px}
 .tabpane[hidden]{display:none}
 .grid{display:grid;grid-template-columns:minmax(340px,440px) 1fr;gap:22px;align-items:start}
+.grid>*,.vgrid>*,.win-item>*{min-width:0}
 @media (max-width:920px){.grid{grid-template-columns:1fr}}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 18px;margin-bottom:14px;position:relative}
@@ -174,6 +178,19 @@ pre.code{background:var(--field);border:1px solid var(--line);border-radius:10px
 .trust{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .trust span{padding:7px 10px;border:1px solid var(--line);background:var(--panel);border-radius:999px;color:var(--muted);font-size:11px;font-weight:650;white-space:nowrap}
 .theme-toggle{min-width:100px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip-link{position:fixed;left:16px;top:-80px;padding:10px 16px;background:var(--acc);color:var(--acc-ink);z-index:100;border-radius:8px}
+.skip-link:focus{top:10px}
+.journey{display:flex;gap:8px;margin:0 0 20px;padding:0;list-style:none;flex-wrap:wrap}
+.journey li{flex:1;min-width:120px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;color:var(--muted);background:var(--panel);font-size:12px}
+.journey li[aria-current="step"]{border-color:var(--acc);color:var(--text)}
+.journey b{font-family:var(--mono);color:var(--acc);margin-right:8px}
+.stage-title{display:flex;width:100%;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+.stage-title h2{font-size:13px;margin:0;letter-spacing:.08em;text-transform:uppercase}
+.stage-title span{font-size:12px;color:var(--muted)}
+label.btn{cursor:pointer}
+label.btn:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+@media(max-width:480px){.win-item{grid-template-columns:32px minmax(0,1fr);gap:8px}.win-item .acts{grid-column:2;justify-content:flex-start}.logbody div{grid-template-columns:1fr;gap:0}.hash{flex-wrap:wrap}.hash .v{min-width:140px}.wsec-h .row{gap:6px}.wsec-h .btn{white-space:normal;text-align:center}.intro h1{font-size:34px}.journey li{min-width:100px}.hdr-right .pill{display:none}.btn,.copy,nav.tabs button{min-height:40px}.grid,.vgrid{grid-template-columns:minmax(0,1fr)}}
 footer{max-width:1320px;margin:0 auto;padding:10px 22px 26px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 footer a{text-decoration:none}
 @media(max-width:800px){.intro{align-items:flex-start;flex-direction:column;gap:16px}.intro-actions{align-items:flex-start}.repo-actions{justify-content:flex-start}.trust{justify-content:flex-start}}
@@ -182,12 +199,13 @@ footer a{text-decoration:none}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to draw</a>
 <header class="top">
   <div class="brand"><span class="mark"></span><span>FAIRSPIN</span><small>verifiable random draw · runs offline</small></div>
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="draw" aria-selected="true">Draw</button>
-    <button role="tab" data-tab="verify" aria-selected="false">Verify</button>
-    <button role="tab" data-tab="how" aria-selected="false">How it works</button>
+  <nav class="tabs" role="tablist" aria-label="FairSpin sections">
+    <button id="nav-draw" role="tab" data-tab="draw" aria-controls="tab-draw" aria-selected="true">Draw</button>
+    <button id="nav-verify" role="tab" data-tab="verify" aria-controls="tab-verify" aria-selected="false" tabindex="-1">Verify</button>
+    <button id="nav-how" role="tab" data-tab="how" aria-controls="tab-how" aria-selected="false" tabindex="-1">How it works</button>
   </nav>
   <div class="hdr-right">
     <span class="pill" id="statusPill"><span class="dot"></span><span>Draft</span></span>
@@ -198,9 +216,9 @@ footer a{text-decoration:none}
   </div>
 </header>
 
-<main>
+<main id="main" tabindex="-1">
 <!-- ================= DRAW ================= -->
-<section class="tabpane" id="tab-draw">
+<section class="tabpane" id="tab-draw" role="tabpanel" aria-labelledby="nav-draw">
   <section class="intro" aria-labelledby="introTitle">
     <div class="intro-copy">
       <div class="eyebrow">Transparent by design</div>
@@ -218,8 +236,10 @@ footer a{text-decoration:none}
       </div>
     </div>
   </section>
+  <ol class="journey" aria-label="Draw progress"><li id="journeyPrepare" aria-current="step"><b>01</b> Prepare entries</li><li id="journeyCommit"><b>02</b> Publish commitment</li><li id="journeyDraw"><b>03</b> Draw &amp; share proof</li></ol>
+  <div class="banner" id="storageWarning" role="alert" hidden><span id="storageMessage"></span><button class="btn sm" id="recoverStorage" hidden>Download saved data</button></div>
   <div class="banner" id="tempBanner">
-    <span>🔒 <b>Nothing leaves this device.</b> The session is stored temporarily in this browser so it survives a refresh. Download your audit log and recordings before you clear it.</span>
+    <span>🔒 <b>Your entries stay in this browser.</b> The session stays saved until you clear it. Audit exports contain the full entry list and secret seed — share them thoughtfully.</span>
     <span class="row" id="restoredNote" hidden></span>
   </div>
 
@@ -228,10 +248,10 @@ footer a{text-decoration:none}
       <!-- STEP 1 -->
       <div class="card active" id="card1">
         <div class="step-h"><span class="step-n">01</span><h2>Entries</h2><span class="tag">one per line</span></div>
-        <textarea id="entries" spellcheck="false" placeholder="Paste names, emails, or wallet addresses — one per line.&#10;&#10;Or drop a .csv / .txt file here."></textarea>
+        <label class="sr-only" for="entries">Entries, one per line</label>
+        <textarea id="entries" spellcheck="false" maxlength="2097152" aria-describedby="listStats" placeholder="Paste names, emails, or wallet addresses — one per line.&#10;&#10;Or drop a .csv / .txt file here."></textarea>
         <div class="row" style="margin-top:10px">
-          <label class="btn sm" for="csvFile">Import CSV / TXT</label>
-          <input type="file" id="csvFile" accept=".csv,.txt,.tsv,text/csv,text/plain" hidden>
+          <label class="btn sm" for="csvFile">Import CSV / TXT<input class="sr-only" type="file" id="csvFile" accept=".csv,.txt,.tsv,text/csv,text/plain"></label>
           <button class="btn sm ghost" id="sampleBtn">Load sample</button>
           <span style="flex:1"></span>
           <label class="chk"><input type="checkbox" id="dedupe" checked> Remove duplicates</label>
@@ -239,7 +259,7 @@ footer a{text-decoration:none}
         </div>
         <div id="csvOpts" hidden style="margin-top:10px">
           <div class="row">
-            <div style="flex:1;min-width:160px"><label class="fld">Column</label><select id="csvCol"></select></div>
+            <div style="flex:1;min-width:160px"><label class="fld" for="csvCol">Column</label><select id="csvCol"></select></div>
             <label class="chk" style="margin-top:18px"><input type="checkbox" id="csvHeader" checked> First row is a header</label>
           </div>
           <p class="note" id="csvInfo"></p>
@@ -251,20 +271,21 @@ footer a{text-decoration:none}
       <div class="card" id="card2">
         <div class="step-h"><span class="step-n">02</span><h2>Rules</h2></div>
         <div class="row">
-          <div><label class="fld">Winners</label><input type="number" id="target" min="1" value="1"></div>
-          <div><label class="fld">Spin length</label><div class="row" style="gap:8px"><input type="range" id="duration" min="3" max="15" step="1" value="7"><span class="mono" id="durVal">7s</span></div></div>
+          <div><label class="fld" for="target">Winners</label><input type="number" id="target" min="1" max="1000" value="1"></div>
+          <div><label class="fld" for="duration">Spin length</label><div class="row" style="gap:8px"><input type="range" id="duration" min="3" max="15" step="1" value="7"><span class="mono" id="durVal">7s</span></div></div>
         </div>
         <div class="row">
           <label class="chk"><input type="checkbox" id="removeWinners" checked> Winners leave the pool (no repeat wins)</label>
           <label class="chk"><input type="checkbox" id="sound" checked> Tick sound</label>
         </div>
+        <p class="note">The winner count and pool rules freeze when you lock the list. Each entry is one chance; duplicate entries can win separately if kept.</p>
       </div>
 
       <!-- STEP 3 -->
       <div class="card" id="card3">
         <div class="step-h"><span class="step-n">03</span><h2>Lock &amp; commit</h2></div>
         <div id="lockPre">
-          <p class="note" style="margin-top:0">Freezes the list and generates a secret random seed. You get two fingerprints to publish <b>before</b> spinning — they prove the list and the outcome were fixed in advance.</p>
+          <p class="note" style="margin-top:0">Freezes the list and generates a secret random seed. You get two fingerprints to publish <b>before</b> spinning — they commit you to this list, seed and set of rules. The public post is essential to the proof.</p>
           <div class="row" style="margin-top:12px"><button class="btn primary" id="lockBtn">Lock list &amp; generate seed</button></div>
         </div>
         <div id="lockPost" hidden>
@@ -283,10 +304,10 @@ footer a{text-decoration:none}
       <!-- STEP 4 -->
       <div class="card" id="card4">
         <div class="step-h"><span class="step-n">04</span><h2>Public entropy</h2><span class="tag">optional · strongly recommended</span></div>
-        <label class="fld">Value</label>
-        <input type="text" id="entropy" class="mono" placeholder="e.g. hash of Bitcoin block #871234" spellcheck="false">
-        <label class="fld" style="margin-top:10px">Where it came from</label>
-        <input type="text" id="entropyNote" placeholder="e.g. BTC block 871234, announced in the commitment post">
+        <label class="fld" for="entropy">Value</label>
+        <input type="text" id="entropy" maxlength="2048" class="mono" placeholder="e.g. hash of Bitcoin block #871234" spellcheck="false">
+        <label class="fld" for="entropyNote" style="margin-top:10px">Where it came from</label>
+        <input type="text" id="entropyNote" maxlength="2048" placeholder="e.g. BTC block 871234, announced in the commitment post">
         <p class="note">Mixes in a value nobody controls — like a future block hash you announced in advance. That way even you couldn't have picked the seed to favour someone. Locks at the first spin.</p>
       </div>
     </div>
@@ -294,7 +315,8 @@ footer a{text-decoration:none}
     <!-- STAGE -->
     <div>
       <div class="stage">
-        <div class="wheelwrap" id="wheelWrap"><canvas id="wheel"></canvas><canvas id="fx"></canvas></div>
+        <div class="stage-title"><h2>Your draw</h2><span id="poolSummary">Ready when you are</span></div>
+        <div class="wheelwrap" id="wheelWrap"><canvas id="wheel" role="img" aria-label="Draw wheel. The selected entry is displayed below."></canvas><canvas id="fx" aria-hidden="true"></canvas></div>
         <div class="readout" id="readout"><span class="lbl" id="readLbl">Under pointer</span><span class="val" id="readVal">—</span></div>
         <div class="spinrow"><button class="btn primary" id="spinBtn" disabled>SPIN</button></div>
         <div class="spinhint" id="spinHint"></div>
@@ -304,6 +326,7 @@ footer a{text-decoration:none}
             <div class="row">
               <button class="btn sm primary" id="dlJson" disabled>Download audit log (JSON)</button>
               <button class="btn sm" id="dlAll" disabled>Download everything</button>
+              <button class="btn sm ghost" id="cancelExport" hidden>Stop export</button>
             </div>
           </div>
           <div id="winList"><div class="empty">Winners appear here — each with a replay, a timestamped GIF and a shareable certificate.</div></div>
@@ -316,24 +339,24 @@ footer a{text-decoration:none}
 </section>
 
 <!-- ================= VERIFY ================= -->
-<section class="tabpane" id="tab-verify" hidden>
+<section class="tabpane" id="tab-verify" role="tabpanel" aria-labelledby="nav-verify" hidden>
   <div class="vgrid">
     <div>
       <div class="card active">
         <div class="step-h"><span class="step-n">✓</span><h2>Verify an audit log</h2></div>
         <p class="note" style="margin-top:0">Load any FairSpin audit JSON. Every hash and every winner is recomputed here from scratch — no trust in the original session required.</p>
         <div class="row" style="margin-top:12px">
-          <label class="btn sm" for="vFile">Open audit JSON</label><input type="file" id="vFile" accept=".json,application/json" hidden>
+          <label class="btn sm" for="vFile">Open audit JSON<input class="sr-only" type="file" id="vFile" accept=".json,application/json"></label>
           <button class="btn sm ghost" id="vUseCurrent">Use current session</button>
         </div>
-        <textarea id="vText" spellcheck="false" placeholder="…or paste the JSON here" style="margin-top:10px;min-height:120px"></textarea>
+        <label class="sr-only" for="vText">Audit JSON to verify</label><textarea id="vText" spellcheck="false" maxlength="10485760" placeholder="…or paste the JSON here" style="margin-top:10px;min-height:120px"></textarea>
         <div class="row" style="margin-top:10px"><button class="btn primary" id="vRun">Verify</button></div>
       </div>
       <div class="card" id="vOut" hidden></div>
     </div>
     <div>
       <div class="stage">
-        <div class="wheelwrap"><canvas id="vWheel"></canvas></div>
+        <div class="wheelwrap"><canvas id="vWheel" role="img" aria-label="Verified draw replay. The result is displayed below."></canvas></div>
         <div class="readout" id="vReadout"><span class="lbl" id="vReadLbl">Replay</span><span class="val" id="vReadVal">Verify a log, then replay any draw</span></div>
       </div>
     </div>
@@ -341,7 +364,7 @@ footer a{text-decoration:none}
 </section>
 
 <!-- ================= HOW ================= -->
-<section class="tabpane how" id="tab-how" hidden>
+<section class="tabpane how" id="tab-how" role="tabpanel" aria-labelledby="nav-how" hidden>
   <h2>Provably fair, in plain terms</h2>
   <p>FairSpin uses a <b>commit–reveal</b> scheme. The wheel is just the show: the winner is computed from cryptographic hashes that anyone can recompute later, with this file or a few lines of Python.</p>
   <h3>The flow</h3>
@@ -356,40 +379,209 @@ footer a{text-decoration:none}
   <h3>What the recordings prove</h3>
   <p>The GIF and certificate show the timestamp, the draw number and the hash fingerprints. The wheel always lands on the slice the math picked: the animation is driven by the result, not the other way round. On its own the GIF is presentation. The proof is the hashes.</p>
   <h3>Honest limits</h3>
-  <p>The person running the draw holds the seed. Without public entropy, an organiser could in theory generate seeds privately until one favoured a friend, and only then publish the commitment. Public entropy from a future event closes that gap. Posting the commitment before the entropy exists is what makes it airtight.</p>
+  <p>The person running the draw holds the seed. Without public entropy, an organiser could in theory generate seeds privately until one favoured a friend, and only then publish the commitment. A precisely specified, unpredictable future value reduces that risk only when you publish the list hash, seed commitment, rules and entropy source beforehand. The organiser must not choose between entropy values or abandon unfavourable sessions. The local file cannot prove publication, the external source, or that other sessions never existed.</p>
   <h3>Independent check (Python 3, standard library only)</h3>
   <div class="row" style="margin-bottom:6px"><button class="btn sm" id="copyPy">Copy script</button></div>
-<pre class="code" id="pyCode">import hmac, hashlib, json, sys
-a = json.load(open(sys.argv[1], encoding="utf-8"))
-H = lambda b: hashlib.sha256(b).hexdigest()
-E = a["list"]["entries"]
-lh = H("\n".join(E).encode()); assert lh == a["list"]["sha256"], "list hash mismatch"
-seed = bytes.fromhex(a["reveal"]["seed"])
-assert H(seed) == a["commitment"]["seedSha256"], "seed does not match commitment"
-ent, taken = a["entropy"]["value"], []
-for d in a["draws"]:
-    pool = [i for i in range(len(E)) if not (a["commitment"]["removeWinners"] and i in taken)]
-    N = len(pool); lim = (2**32 // N) * N; c = 0
-    while True:
-        m = f"fairspin/v1|list:{lh}|entropy:{ent}|draw:{d['n']}|ctr:{c}".encode()
-        r = int.from_bytes(hmac.new(seed, m, hashlib.sha256).digest()[:4], "big")
-        if r &lt; lim: break
-        c += 1
-    w = pool[r % N]
-    assert E[w] == d["winner"], f"draw {d['n']} mismatch"
-    taken.append(w); print(f"draw {d['n']}: OK -> {E[w]}")</pre>
+<details><summary>View the complete Python verifier</summary>
+<pre class="code" id="pyCode">#!/usr/bin/env python3
+"""Independent FairSpin v1 verifier. Python 3, standard library only.
+
+Usage: python3 verify.py fairspin-SESSION-audit.json
+
+Verifies committed inputs, draw order, winners, random values, pool fingerprints,
+animation results and recorded chronology. The optional whole-file checksum is
+NOT recomputed: Python JSON serialization differs from JavaScript JSON.stringify.
+Use the browser verifier to check that checksum. Neither verifier authenticates
+the organizer or proves when the commitment was published.
+"""
+
+import datetime
+import hashlib
+import hmac
+import json
+import math
+import re
+import sys
+
+MAX_BYTES = 10 * 1024 * 1024
+HEX = re.compile(r"[0-9a-f]{64}\Z")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z\Z")
+# ECMAScript trim whitespace; Python str.strip() includes additional characters.
+WHITESPACE = "\u0009\u000a\u000b\u000c\u000d\u0020\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def integer(value, low, high):
+    return type(value) is int and low &lt;= value &lt;= high
+
+
+def string(value, maximum):
+    if not isinstance(value, str):
+        return False
+    try:
+        return len(value.encode("utf-16-le")) // 2 &lt;= maximum
+    except UnicodeEncodeError:
+        return False
+
+
+def fingerprint(value):
+    return isinstance(value, str) and HEX.fullmatch(value) is not None
+
+
+def digest(value):
+    return hashlib.sha256(value).hexdigest()
+
+
+def timestamp(value):
+    require(isinstance(value, str) and DATE.fullmatch(value), "Invalid UTC timestamp")
+    return datetime.datetime.fromisoformat(value[:-1] + "+00:00")
+
+
+def verify(a):
+    require(isinstance(a, dict) and a.get("format") == "fairspin-audit" and type(a.get("version")) is int and a["version"] == 1, "Expected a FairSpin version 1 audit")
+    for section in ("list", "commitment", "entropy", "reveal", "session"):
+        require(isinstance(a.get(section), dict), "Missing section: " + section)
+    entries, c, entropy = a["list"].get("entries"), a["commitment"], a["entropy"]
+    require(isinstance(entries, list) and 2 &lt;= len(entries) &lt;= 10000, "Expected 2–10000 entries")
+    for entry in entries:
+        require(string(entry, 512) and entry and entry.strip(WHITESPACE) == entry and "\r" not in entry and "\n" not in entry, "Entries must be trimmed, nonempty, single-line Unicode strings")
+    require(type(a["list"].get("count")) is int and a["list"]["count"] == len(entries), "Entry count mismatch")
+    for value in (a["list"].get("sha256"), c.get("listSha256"), c.get("seedSha256"), a["reveal"].get("seed")):
+        require(fingerprint(value), "Invalid 32-byte lowercase hexadecimal value")
+    options = a["list"].get("options")
+    require(isinstance(options, dict) and type(options.get("dedupe")) is bool and type(options.get("caseInsensitive")) is bool, "Invalid list options")
+    require(integer(a["list"].get("duplicatesRemoved"), 0, 2 * 1024 * 1024) and string(a["list"].get("source"), 4096), "Invalid list metadata")
+    if options["dedupe"]:
+        keys = [e.lower() if options["caseInsensitive"] else e for e in entries]
+        require(len(set(keys)) == len(keys), "Duplicate entries violate committed rules")
+    require(type(c.get("removeWinners")) is bool and integer(c.get("winnersTarget"), 1, 1000), "Invalid committed rules")
+    require(not c["removeWinners"] or c["winnersTarget"] &lt;= len(entries), "Winner target exceeds available entries")
+    require(not c["removeWinners"] or len("\n".join(entries).encode("utf-8")) * c["winnersTarget"] &lt;= 128 * 1024 * 1024, "Draw plan exceeds verification work limit; use fewer or shorter entries, or fewer winners")
+    draws = a.get("draws")
+    require(isinstance(draws, list) and len(draws) &lt;= c["winnersTarget"] and len(draws) &lt;= 1000, "Draw count exceeds committed target")
+    require(not c["removeWinners"] or len(draws) &lt;= len(entries), "Draw count exceeds available pool")
+    for field in ("value", "note"):
+        value = entropy.get(field)
+        require(string(value, 2048) and value.strip(WHITESPACE) == value, "Invalid entropy " + field)
+    require(string(a["session"].get("id"), 128) and a["session"]["id"], "Invalid session ID")
+    created, committed = timestamp(a["session"].get("createdAt")), timestamp(c.get("committedAt"))
+    generated, revealed = timestamp(a.get("generatedAt")), timestamp(a["reveal"].get("revealedAt"))
+    require(created &lt;= committed &lt;= generated and committed &lt;= revealed, "Invalid session chronology")
+    require("enteredAt" in entropy and "lockedAt" in entropy, "Missing entropy timestamps")
+    entered = None if entropy["enteredAt"] is None else timestamp(entropy["enteredAt"])
+    locked = None if entropy["lockedAt"] is None else timestamp(entropy["lockedAt"])
+    require(entered is None or created &lt;= entered &lt;= generated, "Invalid entropy entry time")
+    require(not entropy["value"] or entered is not None, "Missing entropy entry time")
+    if draws:
+        require(isinstance(draws[0], dict), "Invalid draw record")
+        first = timestamp(draws[0].get("at"))
+        require(locked is not None and committed &lt;= locked &lt;= first and (entered is None or entered &lt;= locked), "Entropy must be fixed before the first draw")
+    else:
+        require(locked is None, "Entropy locked without a draw")
+    events = a.get("events")
+    require(isinstance(events, list) and len(events) &lt;= 20000, "Invalid event log")
+    for event in events:
+        require(isinstance(event, dict) and string(event.get("type"), 128), "Invalid event")
+        timestamp(event.get("at"))
+    if "integrity" in a:
+        require(isinstance(a["integrity"], dict) and fingerprint(a["integrity"].get("sha256")), "Invalid integrity fingerprint")
+
+    list_hash = digest("\n".join(entries).encode("utf-8"))
+    require(list_hash == a["list"]["sha256"] == c["listSha256"], "List fingerprint mismatch")
+    seed = bytes.fromhex(a["reveal"]["seed"])
+    require(digest(seed) == c["seedSha256"], "Seed commitment mismatch")
+    taken, previous, results = set(), committed, []
+    full_pool = list(range(len(entries)))
+    for n, d in enumerate(draws, 1):
+        require(isinstance(d, dict) and type(d.get("n")) is int and d["n"] == n, "Draws must be numbered consecutively from 1")
+        at = timestamp(d.get("at"))
+        require(previous &lt;= at &lt;= generated and at &lt;= revealed, "Invalid draw chronology")
+        previous = at
+        require(string(d.get("winner"), 512) and fingerprint(d.get("poolSha256")) and fingerprint(d.get("hmac")), "Invalid draw fields")
+        for field, low, high in (("poolSize", 1, len(entries)), ("ctr", 0, 9999), ("uint32", 0, 2 ** 32 - 1), ("poolIndex", 0, len(entries) - 1), ("entryIndex", 0, len(entries) - 1)):
+            require(integer(d.get(field), low, high), "Invalid " + field)
+        anim = d.get("anim")
+        require(isinstance(anim, dict) and integer(anim.get("durationMs"), 3000, 15000) and integer(anim.get("turns"), 6, 9), "Invalid animation")
+        frac = anim.get("frac")
+        require(type(frac) in (int, float) and math.isfinite(frac) and 0.18 &lt;= frac &lt;= 0.82, "Invalid animation fraction")
+        pool = [i for i in full_pool if i not in taken] if c["removeWinners"] else full_pool
+        require(pool, "Eligible pool exhausted")
+        limit = (2 ** 32 // len(pool)) * len(pool)
+        for ctr in range(10000):
+            message = f"fairspin/v1|list:{list_hash}|entropy:{entropy['value']}|draw:{n}|ctr:{ctr}".encode("utf-8")
+            h = hmac.new(seed, message, hashlib.sha256).digest()
+            r = int.from_bytes(h[:4], "big")
+            if r &lt; limit:
+                break
+        else:
+            raise ValueError("Rejection sampling exhausted")
+        index = r % len(pool)
+        winner_index = pool[index]
+        expected_frac = float(format(0.18 + 0.64 * (int.from_bytes(h[4:6], "big") / 65535), ".6f"))
+        pool_hash = digest("\n".join(entries[i] for i in pool).encode("utf-8")) if c["removeWinners"] else list_hash
+        expected = {"poolSize": len(pool), "poolSha256": pool_hash, "ctr": ctr, "uint32": r, "hmac": h.hex(), "poolIndex": index, "entryIndex": winner_index, "winner": entries[winner_index]}
+        for field, value in expected.items():
+            require(d[field] == value, f"Draw {n}: {field} mismatch")
+        require(anim["turns"] == 6 + h[6] % 4 and frac == expected_frac, f"Draw {n}: animation mismatch")
+        taken.add(winner_index)
+        results.append((n, entries[winner_index]))
+    return results
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, "Duplicate JSON property: " + key)
+        result[key] = value
+    return result
+
+
+def invalid_constant(value):
+    raise ValueError("Invalid JSON number: " + value)
+
+
+def main(argv):
+    if len(argv) != 2:
+        print("Usage: python3 verify.py fairspin-SESSION-audit.json", file=sys.stderr)
+        return 2
+    try:
+        with open(argv[1], "rb") as handle:
+            raw = handle.read(MAX_BYTES + 1)
+        require(len(raw) &lt;= MAX_BYTES, "Audit exceeds 10 MiB limit")
+        audit = json.loads(raw.decode("utf-8-sig"), object_pairs_hook=unique_object, parse_constant=invalid_constant)
+        results = verify(audit)
+    except (OSError, ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
+        print("FAILED: " + str(error), file=sys.stderr)
+        return 1
+    for n, winner in results:
+        print(f"Draw {n}: OK -&gt; {json.dumps(winner, ensure_ascii=True)}")
+    print(f"Verified {len(results)} draw(s) and the commitment calculations.")
+    print("Whole-file checksum not checked; use the browser verifier for that check.")
+    print("Compare commitments and rules with the public post. Local timestamps do not prove publication.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
+</pre></details>
 </section>
 </main>
 <footer><span>FairSpin · Free, private, and open to verification.</span><span>All processing stays in your browser. <a href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">Open-source on GitHub</a></span></footer>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="sr-only" id="announcement" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 'use strict';
 /* ============================== utils ============================== */
 const $ = s => document.querySelector(s);
 const enc = new TextEncoder();
+const MAX_ENTRIES = 10000, MAX_DRAWS = 1000, MAX_ENTRY_LENGTH = 512, MAX_INPUT_BYTES = 2 * 1024 * 1024, MAX_AUDIT_BYTES = 10 * 1024 * 1024, MAX_ENTROPY_LENGTH = 2048, MAX_VERIFY_WORK = 128 * 1024 * 1024;
 const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
-const unhex = h => { const a = new Uint8Array(h.length >> 1); for (let i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; };
+const unhex = h => { if (typeof h !== 'string' || h.length % 2 || !/^[0-9a-f]*$/i.test(h)) throw new Error('Invalid hexadecimal bytes'); const a = new Uint8Array(h.length / 2); for (let i = 0; i < a.length; i++) a[i] = parseInt(h.slice(i * 2, i * 2 + 2), 16); return a; };
 const nowISO = () => new Date().toISOString();
 const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'; } catch (e) { return 'unknown'; } })();
 const fmtUTC = iso => iso ? iso.replace('T', ' ').replace(/\.\d+Z$/, ' UTC').replace(/Z$/, ' UTC') : '—';
@@ -400,7 +592,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1800); }
 async function copyText(s) {
   try { await navigator.clipboard.writeText(s); toast('Copied'); }
-  catch (e) { const ta = document.createElement('textarea'); ta.value = s; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Copied'); } catch (_) { toast('Copy failed'); } ta.remove(); }
+  catch (e) { const ta = document.createElement('textarea'), focused = document.activeElement; ta.value = s; document.body.appendChild(ta); ta.select(); try { toast(document.execCommand('copy') ? 'Copied' : 'Copy failed; select and copy the text manually'); } catch (_) { toast('Copy failed'); } ta.remove(); focused?.focus(); }
 }
 function downloadBlob(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
 
@@ -450,6 +642,7 @@ const sha256hex = s => hex(sha256(typeof s === 'string' ? enc.encode(s) : s));
 const ALG_TAG = 'fairspin/v1';
 const drawMessage = (listHash, entropy, n, ctr) => `${ALG_TAG}|list:${listHash}|entropy:${entropy}|draw:${n}|ctr:${ctr}`;
 function computeDraw(seedHex, listHash, entropy, n, N) {
+  if (!Number.isSafeInteger(N) || N < 1 || N > 4294967296 || !Number.isSafeInteger(n) || n < 1) throw new Error('Invalid draw number or pool size');
   const key = unhex(seedHex), lim = Math.floor(4294967296 / N) * N;
   for (let ctr = 0; ctr < 10000; ctr++) {
     const d = hmacSha256(key, enc.encode(drawMessage(listHash, entropy, n, ctr)));
@@ -467,24 +660,41 @@ const finalTheta = (anim, poolIndex, N) => anim.turns * TAU + (TAU - (poolIndex 
 
 /* ============================== parsing ============================== */
 function parseCSV(text) {
-  text = text.replace(/^﻿/, '');
-  const first = text.split(/\r?\n/, 1)[0] || '';
-  const delim = [',', '\t', ';'].map(d => [d, first.split(d).length]).sort((a, b) => b[1] - a[1])[0][0];
-  const rows = []; let row = [], f = '', q = false;
+  text = text.replace(/^\uFEFF/, '');
+  // Count separators in the first nonempty logical record, never inside quotes.
+  const separators = [',', '\t', ';'], counts = [0, 0, 0];
+  let quoted = false, atFieldStart = true, hasContent = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
-    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    if (quoted) {
+      if (c === '"') { if (text[i + 1] === '"') i++; else quoted = false; }
+      continue;
+    }
+    if (c === '"' && atFieldStart) { quoted = true; hasContent = true; continue; }
+    if (c === '\r' || c === '\n') { if (hasContent) break; atFieldStart = true; continue; }
+    const k = separators.indexOf(c);
+    if (k >= 0) { counts[k]++; atFieldStart = true; hasContent = true; }
+    else { atFieldStart = false; if (c.trim()) hasContent = true; }
+  }
+  const delim = separators[counts.indexOf(Math.max(...counts))];
+  const rows = []; let row = [], f = '', q = false, closed = false;
+  const finishRow = () => { row.push(f); rows.push(row); row = []; f = ''; closed = false; };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else { q = false; closed = true; } } else f += c; }
+    else if (c === delim) { row.push(f); f = ''; closed = false; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; finishRow(); }
+    else if (closed) { if (c !== ' ' && c !== '\t') throw new Error('Unexpected text after a quoted CSV field.'); }
     else if (c === '"' && f === '') q = true;
-    else if (c === delim) { row.push(f); f = ''; }
-    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
     else f += c;
   }
-  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  if (q) throw new Error('Unclosed quoted field in CSV. Check the file and try again.');
+  if (f !== '' || row.length || closed) finishRow();
   return rows.filter(r => r.some(x => x.trim() !== ''));
 }
 function entriesFromRaw(raw, dedupe, ci) {
   const out = [], seen = new Set(); let dupes = 0;
-  for (const line of raw.split(/\r?\n/)) {
+  for (const line of raw.split(/\r\n|\r|\n/)) {
     const s = line.trim(); if (!s) continue;
     if (dedupe) { const k = ci ? s.toLowerCase() : s; if (seen.has(k)) { dupes++; continue; } seen.add(k); }
     out.push(s);
@@ -580,11 +790,12 @@ class WheelView {
   resize() {
     const w = Math.min(this.c.parentElement.clientWidth, 560); if (w < 50) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1), px = Math.round(w * dpr);
+    this.c.style.width = w + 'px'; this.c.style.height = w + 'px';
     if (px === this.size) return;
-    this.size = px; this.dpr = dpr; this.c.width = px; this.c.height = px; this.c.style.width = w + 'px'; this.c.style.height = w + 'px';
+    this.size = px; this.dpr = dpr; this.c.width = px; this.c.height = px;
     this.bmp = null; this.draw();
   }
-  setPool(vals) { this.vals = vals; this.bmp = null; this.theta = 0; this.hl = -1; this.draw(); }
+  setPool(vals) { this.cancelSpin(); this.vals = vals; this.bmp = null; this.theta = 0; this.hl = -1; this.frozen = false; this.draw(); }
   draw() {
     if (!this.size) return;
     const s = this.dpr, R = this.size / 2 - 16 * s;
@@ -596,36 +807,48 @@ class WheelView {
     if (this.valEl && !this.frozen) this.valEl.textContent = N ? this.vals[this.cur] : '—';
   }
   spin(anim, poolIndex, sound) {
+    this.cancelSpin();
     return new Promise(res => {
       const N = this.vals.length, tf = finalTheta(anim, poolIndex, N), t0 = performance.now();
       let last = -1, lastTick = 0; this.hl = -1; this.frozen = false;
+      if (!N) { this.frozen = true; res(false); return; }
+      if ((window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || anim.durationMs <= 0) {
+        this.showResult(anim, poolIndex); res(true); return;
+      }
+      const run = { frame: null, resolve: res }; this._spinRun = run;
       const step = now => {
+        if (this._spinRun !== run) return;
         const t = Math.min(1, (now - t0) / anim.durationMs);
         this.theta = tf * ease(t); this.draw();
         if (sound && this.cur !== last && now - lastTick > 30) { tick(); lastTick = now; }
         last = this.cur;
-        if (t < 1) requestAnimationFrame(step); else { this.theta = tf; this.hl = poolIndex; this.draw(); res(); }
+        if (t < 1) run.frame = requestAnimationFrame(step);
+        else { this.theta = tf; this.hl = poolIndex; this.draw(); this.frozen = true; this._spinRun = null; res(true); }
       };
-      requestAnimationFrame(step);
+      run.frame = requestAnimationFrame(step);
     });
   }
-  showResult(anim, poolIndex) { const N = this.vals.length; if (!N) return; this.theta = finalTheta(anim, poolIndex, N); this.hl = poolIndex; this.draw(); }
+  cancelSpin() { const run = this._spinRun; if (!run) return; cancelAnimationFrame(run.frame); this._spinRun = null; this.frozen = true; run.resolve(false); }
+  showResult(anim, poolIndex) { this.cancelSpin(); const N = this.vals.length; if (!N) return; this.theta = finalTheta(anim, poolIndex, N); this.hl = poolIndex; this.frozen = false; this.draw(); this.frozen = true; }
 }
 
 /* confetti */
 function confetti() {
   const c = $('#fx'), w = $('#wheel'); const W = w.width, H = w.height;
+  if (confetti._frame != null) cancelAnimationFrame(confetti._frame);
+  confetti._frame = null;
   c.width = W; c.height = H; c.style.width = w.style.width; c.style.height = w.style.height; c.style.left = w.offsetLeft + 'px'; c.style.top = '0';
   const x = c.getContext('2d'), s = W / 500;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const P = Array.from({ length: 140 }, () => ({ x: W / 2, y: H * 0.12, vx: (Math.random() - .5) * 14 * s, vy: (Math.random() * -9 - 2) * s, r: (3 + Math.random() * 4) * s, c: SEG[(Math.random() * 8) | 0], a: Math.random() * TAU, va: (Math.random() - .5) * .4 }));
   const t0 = performance.now();
   const f = now => {
-    const t = (now - t0) / 1800; x.clearRect(0, 0, W, H); if (t > 1) return;
+    const t = (now - t0) / 1800; x.clearRect(0, 0, W, H); if (t > 1) { confetti._frame = null; return; }
     x.globalAlpha = 1 - t;
     for (const p of P) { p.vy += 0.35 * s; p.x += p.vx; p.y += p.vy; p.a += p.va; x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); x.restore(); }
-    requestAnimationFrame(f);
+    confetti._frame = requestAnimationFrame(f);
   };
-  requestAnimationFrame(f);
+  confetti._frame = requestAnimationFrame(f);
 }
 
 /* ============================== GIF encoder (self-contained) ============================== */
@@ -748,7 +971,7 @@ function makeCertificate(info) {
   paintWheel(g, 275, 330, R, bmp, finalTheta(info.anim, info.poolIndex, N), info.poolIndex, N, 1.4);
   const X = 540; let y = 92;
   g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  g.fillStyle = '#c8f169'; g.font = '800 18px system-ui, sans-serif'; g.fillText('FAIRSPIN · VERIFIED DRAW RESULT', X, y);
+  g.fillStyle = '#c8f169'; g.font = '800 18px system-ui, sans-serif'; g.fillText('FAIRSPIN · DRAW RESULT', X, y);
   y += 40; g.fillStyle = '#8b93a7'; g.font = '700 15px system-ui, sans-serif'; g.fillText(`DRAW #${info.n}  ·  ${N} IN POOL  ·  SESSION ${info.sessionId}`, X, y);
   y += 70; g.fillStyle = '#e9ecf3'; g.font = '800 15px system-ui, sans-serif'; g.fillText('WINNER', X, y);
   y += 50; let fs = 44; g.font = `800 ${fs}px ui-monospace, Menlo, Consolas, monospace`;
@@ -756,7 +979,7 @@ function makeCertificate(info) {
   if (g.measureText(label).width > W - X - 50) label = short(label, 30);
   g.fillStyle = '#c8f169'; g.fillText(label, X, y);
   y += 56;
-  const rows = [['Drawn at', `${fmtUTC(info.at)}  (${TZ})`], ['List SHA-256', info.listHash], ['Seed commit', info.seedHash], ['Seed (reveal)', info.seed || '—'], ['Public entropy', info.entropy ? `${info.entropy}${info.entropyNote ? '  — ' + info.entropyNote : ''}` : 'none'], ['HMAC', info.hmac]];
+  const rows = [['Drawn at', fmtUTC(info.at)], ['List SHA-256', info.listHash], ['Seed commit', info.seedHash], ['Seed (reveal)', info.seed || '—'], ['Public entropy', info.entropy ? `${info.entropy}${info.entropyNote ? '  — ' + info.entropyNote : ''}` : 'none'], ['HMAC', info.hmac]];
   for (const [k, v] of rows) {
     g.fillStyle = '#5d6578'; g.font = '700 12px system-ui, sans-serif'; g.fillText(k.toUpperCase(), X, y);
     g.fillStyle = '#c7ccd8'; g.font = '13px ui-monospace, Menlo, Consolas, monospace';
@@ -770,7 +993,8 @@ function makeCertificate(info) {
 
 /* ============================== state ============================== */
 const KEY = 'fairspin.session.v1';
-let S = null, spinning = false, restored = false;
+let S = null, spinning = false, exporting = false, restored = false, cancelExport = false;
+let storageSnapshot = null, storageBlocked = false, recoveryData = null;
 const gifCache = new Map();
 function newSession() {
   S = { v: 1, id: hex(crypto.getRandomValues(new Uint8Array(4))), createdAt: nowISO(), raw: '', source: 'pasted list',
@@ -778,12 +1002,53 @@ function newSession() {
     locked: null, entropy: { value: '', note: '', enteredAt: null, lockedAt: null }, draws: [], events: [], exportedAt: -1 };
   logEv('session_created', { timezone: TZ });
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); setSaved(true); } catch (e) { setSaved(false); } }
+function storageNotice(message) { $('#storageWarning').hidden = false; $('#storageMessage').textContent = message; }
+function checkSession() {
+  if (storageBlocked) return false;
+  try {
+    if (localStorage.getItem(KEY) !== storageSnapshot) {
+      storageBlocked = true;
+      storageNotice('This session changed in another tab. Reload to use the latest saved session. This tab is read-only to protect your results.');
+      setSaved(false); renderAll(); return false;
+    }
+  } catch (e) { /* Storage can be unavailable; continue in memory with a visible warning. */ }
+  return true;
+}
+function save() {
+  if (!checkSession()) return false;
+  try { const data = JSON.stringify(S); localStorage.setItem(KEY, data); storageSnapshot = data; setSaved(true); return true; }
+  catch (e) { setSaved(false); storageNotice('Browser storage is unavailable or full. This session exists only in this tab; export your audit before closing or refreshing.'); return false; }
+}
 function setSaved(ok) { const p = $('#savedPill'); p.className = 'pill ' + (ok ? 'ok' : 'warn'); p.lastElementChild.textContent = ok ? 'Saved locally' : 'Not saved (storage blocked)'; }
 function logEv(type, data) { S.events.push({ at: nowISO(), type, ...data }); renderLog(); }
 function load() {
-  try { const j = JSON.parse(localStorage.getItem(KEY) || 'null'); if (j && j.v === 1 && j.id) { S = j; restored = true; return; } } catch (e) {}
+  try {
+    storageSnapshot = localStorage.getItem(KEY);
+    if (storageSnapshot) {
+      if (storageSnapshot.length > MAX_AUDIT_BYTES) throw new Error('Saved session is too large');
+      const j = JSON.parse(storageSnapshot);
+      if (!validSession(j)) throw new Error('Saved session failed validation');
+      S = j; restored = true; return;
+    }
+  } catch (e) {
+    if (storageSnapshot) {
+      recoveryData = storageSnapshot; storageBlocked = true;
+      storageNotice('The saved session could not be validated. It has been preserved. Download it for recovery, then use Clear session to start fresh.');
+      $('#recoverStorage').hidden = false;
+    }
+  }
   newSession();
+}
+function validSession(j) {
+  if (!j || j.v !== 1 || !/^[0-9a-f]{8}$/.test(j.id) || typeof j.raw !== 'string' || j.raw.length > MAX_INPUT_BYTES || typeof j.source !== 'string' || !Number.isFinite(Date.parse(j.createdAt))) return false;
+  const o = j.opts, e = j.entropy;
+  if (!o || !['dedupe', 'ci', 'remove', 'sound'].every(k => typeof o[k] === 'boolean') || !Number.isSafeInteger(o.target) || o.target < 1 || o.target > MAX_DRAWS || !Number.isInteger(o.duration) || o.duration < 3 || o.duration > 15) return false;
+  if (!e || typeof e.value !== 'string' || typeof e.note !== 'string' || e.value.length > MAX_ENTROPY_LENGTH || e.note.length > MAX_ENTROPY_LENGTH || !Array.isArray(j.draws) || !Array.isArray(j.events) || j.events.length > 20000 || !j.events.every(ev => ev && typeof ev.type === 'string' && typeof ev.at === 'string' && Number.isFinite(Date.parse(ev.at))) || !Number.isInteger(j.exportedAt) || j.exportedAt < -1 || j.exportedAt > j.draws.length) return false;
+  if (!j.locked) return j.draws.length === 0;
+  const L = j.locked;
+  if (o.target !== L.winnersTarget || o.remove !== L.removeWinners || o.dedupe !== L.dedupe || o.ci !== L.caseInsensitive) return false;
+  const previous = S;
+  try { S = j; return verifyAudit(buildAudit()).ok; } catch (e) { return false; } finally { S = previous; }
 }
 
 /* ============================== DOM wiring ============================== */
@@ -824,16 +1089,19 @@ function renderStats() {
 function renderLog() {
   const b = $('#logBody'); if (!b || !S) return;
   $('#logCount').textContent = S.events.length;
-  b.innerHTML = S.events.slice().reverse().map(e => { const { at, type, ...rest } = e; const r = Object.entries(rest).map(([k, v]) => `${k}=${typeof v === 'string' ? short(v, 48) : JSON.stringify(v)}`).join('  '); return `<div><span class="t">${fmtUTC(at)}</span><span><b>${esc(type)}</b> ${esc(r)}</span></div>`; }).join('');
+  b.innerHTML = S.events.slice(-300).reverse().map(e => { const { at, type, ...rest } = e; const r = Object.entries(rest).map(([k, v]) => `${k}=${typeof v === 'string' ? short(v, 48) : JSON.stringify(v)}`).join('  '); return `<div><span class="t">${esc(fmtUTC(at))}</span><span><b>${esc(type)}</b> ${esc(r)}</span></div>`; }).join('');
 }
 function renderAll() {
-  const L = S.locked, nd = S.draws.length, tgt = S.opts.target;
+  const L = S.locked, nd = S.draws.length, tgt = L ? L.winnersTarget : S.opts.target, busy = spinning || exporting;
   $('#sessId').textContent = S.id;
-  el.entries.readOnly = !!L; el.dedupe.disabled = el.ci.disabled = !!L; $('#csvFile').disabled = !!L; $('#sampleBtn').disabled = !!L;
+  el.entries.readOnly = !!L || storageBlocked; el.dedupe.disabled = el.ci.disabled = !!L || storageBlocked; $('#csvFile').disabled = !!L || storageBlocked; $('#sampleBtn').disabled = !!L || storageBlocked;
+  $('#csvCol').disabled = $('#csvHeader').disabled = !!L || storageBlocked;
   document.querySelector('label[for=csvFile]').style.opacity = L ? .42 : 1; document.querySelector('label[for=csvFile]').style.pointerEvents = L ? 'none' : '';
-  el.remove.disabled = !!L;
-  el.target.disabled = spinning;
-  el.entropy.disabled = el.entropyNote.disabled = nd > 0 || spinning;
+  el.remove.disabled = el.target.disabled = !!L || storageBlocked;
+  el.duration.disabled = el.sound.disabled = busy || storageBlocked;
+  el.lockBtn.disabled = !!L || storageBlocked || liveList().entries.length < 2;
+  $('#clearBtn').disabled = busy;
+  el.entropy.disabled = el.entropyNote.disabled = nd > 0 || busy || storageBlocked;
   $('#lockPre').hidden = !!L; $('#lockPost').hidden = !L;
   if (L) { $('#hList').textContent = L.listHash; $('#hSeed').textContent = L.seedHash; $('#hTime').textContent = `${fmtUTC(L.at)} · ${fmtLocal(L.at)}`; }
   $('#card1').classList.toggle('locked-done', !!L); $('#card3').classList.toggle('locked-done', !!L);
@@ -842,13 +1110,18 @@ function renderAll() {
   // spin button
   const pool = currentPoolIdx();
   let hint = '', can = false, label = 'SPIN';
-  if (spinning) { label = 'SPINNING…'; hint = 'Result is already recorded in the audit log — the wheel is just catching up.'; }
+  if (storageBlocked) { label = 'SESSION PAUSED'; hint = 'See the session notice above before continuing.'; }
+  else if (exporting) { label = 'EXPORTING…'; hint = 'Preparing your download. Your results are saved.'; }
+  else if (spinning) { label = 'SPINNING…'; hint = 'Result is already recorded in the audit log — the wheel is just catching up.'; }
   else if (!L) hint = liveList().entries.length < 2 ? 'Add at least 2 entries, then lock the list.' : 'Lock the list (step 3) to enable spinning.';
   else if (pool.length === 0) hint = 'Pool is empty.';
-  else if (nd >= tgt) { hint = `All ${tgt} winner${tgt > 1 ? 's' : ''} drawn. Raise “Winners” to draw more — the change is logged.`; label = 'DONE'; }
+  else if (nd >= tgt) { hint = `All ${tgt} winner${tgt > 1 ? 's' : ''} drawn. Download the audit and share your proof.`; label = 'DRAW COMPLETE'; }
   else { can = true; label = `SPIN · WINNER ${nd + 1} OF ${tgt}`; hint = nd === 0 ? (S.entropy.value || el.entropy.value.trim() ? 'Public entropy will lock on this spin.' : 'No public entropy set — fine for casual draws, weaker proof.') : `${pool.length} left in pool.`; }
   el.spinBtn.disabled = !can; el.spinBtn.textContent = label; el.spinHint.textContent = hint;
-  $('#dlJson').disabled = !L; $('#dlAll').disabled = !nd;
+  $('#dlJson').disabled = !nd || busy; $('#dlAll').disabled = !nd || busy;
+  $('#dlAll').textContent = exporting ? 'Preparing downloads…' : 'Download everything';
+  $('#poolSummary').textContent = L ? `${nd} / ${tgt} drawn · ${pool.length.toLocaleString()} in pool` : `${liveList().entries.length.toLocaleString()} entries`;
+  ['journeyPrepare', 'journeyCommit', 'journeyDraw'].forEach((id, i) => { const current = !L ? 0 : !nd ? 1 : 2; if (i === current) $('#' + id).setAttribute('aria-current', 'step'); else $('#' + id).removeAttribute('aria-current'); });
   // status
   const sp = $('#statusPill'); let st = 'Draft', cls = 'pill';
   if (spinning) { st = 'Drawing…'; cls = 'pill warn'; } else if (L && nd >= tgt) { st = `Done · ${nd}/${tgt}`; cls = 'pill ok'; } else if (L) { st = nd ? `Drawing · ${nd}/${tgt}` : 'Locked · committed'; cls = 'pill ok'; }
@@ -862,9 +1135,9 @@ function renderWinners() {
       <div class="num">#${d.n}</div>
       <div><div class="who">${esc(d.winner)}</div><div class="meta">${fmtUTC(d.at)} · slot ${d.poolIndex + 1} of ${d.poolSize} · line ${d.entryIndex + 1} of list</div><div class="progress" hidden><i></i></div></div>
       <div class="acts">
-        <button class="btn sm" data-act="replay" ${spinning ? 'disabled' : ''}>Replay</button>
-        <button class="btn sm" data-act="gif">GIF</button>
-        <button class="btn sm" data-act="png">Certificate</button>
+        <button class="btn sm" data-act="replay" ${spinning || exporting ? 'disabled' : ''}>Replay</button>
+        <button class="btn sm" data-act="gif" ${spinning || exporting ? 'disabled' : ''}>GIF</button>
+        <button class="btn sm" data-act="png" ${spinning || exporting ? 'disabled' : ''}>Certificate</button>
         <button class="copy" data-act="copy">copy</button>
       </div>
     </div>`).join('');
@@ -876,16 +1149,24 @@ function drawInfo(d) {
   return { ...d, vals, listHash: L.listHash, seedHash: L.seedHash, seed: L.seed, sessionId: S.id, entropy: S.entropy.value, entropyNote: S.entropy.note };
 }
 async function gifFor(d, item) {
-  if (gifCache.has(d.n)) return gifCache.get(d.n);
+  const key = `${S.id}:${d.n}`;
+  if (gifCache.has(key)) return gifCache.get(key);
   const bar = item && item.querySelector('.progress'); if (bar) { bar.hidden = false; }
   const blob = await makeGif(drawInfo(d), p => { if (bar) bar.firstElementChild.style.width = (p * 100).toFixed(0) + '%'; });
   if (bar) bar.hidden = true;
-  gifCache.set(d.n, blob); return blob;
+  gifCache.clear(); gifCache.set(key, blob); return blob;
 }
 
 function lockList() {
+  if (S.locked || !checkSession()) return;
   const { entries, dupes } = entriesFromRaw(S.raw, S.opts.dedupe, S.opts.ci);
   if (entries.length < 2) { toast('Need at least 2 entries'); return; }
+  if (enc.encode(S.raw).length > MAX_INPUT_BYTES || entries.length > MAX_ENTRIES || entries.some(v => v.length > MAX_ENTRY_LENGTH || /[\r\n]/.test(v) || v !== v.toWellFormed())) { toast('Use up to 10,000 entries, 512 characters per entry, and 2 MB of valid text.'); return; }
+  S.opts.target = Math.max(1, Math.min(MAX_DRAWS, Math.floor(Number(el.target.value)) || 1)); el.target.value = S.opts.target;
+  if (S.opts.remove && S.opts.target > entries.length) { toast('Winner count cannot exceed entries when winners leave the pool.'); el.target.focus(); return; }
+  const maxWinners = Math.floor(MAX_VERIFY_WORK / enc.encode(entries.join('\n')).length);
+  if (S.opts.remove && S.opts.target > maxWinners) { toast(`For a list this large, choose at most ${maxWinners} winners so the audit stays quick to verify.`); el.target.focus(); return; }
+  if (!setEntropy(el.entropy.value.trim(), el.entropyNote.value.trim())) return;
   const seed = hex(crypto.getRandomValues(new Uint8Array(32)));
   const at = nowISO();
   S.locked = { at, entries, duplicatesRemoved: dupes, listHash: sha256hex(entries.join('\n')), seed, seedHash: sha256hex(unhex(seed)), removeWinners: S.opts.remove, winnersTarget: S.opts.target, source: S.source, dedupe: S.opts.dedupe, caseInsensitive: S.opts.ci };
@@ -897,21 +1178,21 @@ function statement() {
   return [`FairSpin draw commitment — session ${S.id}`,
     `Entries: ${L.entries.length} · list SHA-256: ${L.listHash}`,
     `Seed commitment (SHA-256 of secret seed): ${L.seedHash}`,
-    `Winners: ${S.opts.target} · winners leave pool: ${L.removeWinners ? 'yes' : 'no'}`,
+    `Winners: ${L.winnersTarget} · winners leave pool: ${L.removeWinners ? 'yes' : 'no'}`,
     `Public entropy: ${S.entropy.note || (S.entropy.value ? S.entropy.value : '(none announced)')}`,
     `Locked: ${L.at}`,
     `Verify afterwards with the revealed seed + audit log (HMAC-SHA256, rejection sampling).`].join('\n');
 }
 
 async function spin() {
-  if (spinning || !S.locked) return;
+  if (spinning || exporting || !S.locked || !checkSession()) return;
   const L = S.locked, n = S.draws.length + 1;
-  if (n > S.opts.target) return;
+  if (n > L.winnersTarget) return;
   const pool = currentPoolIdx(); if (!pool.length) return;
   if (S.opts.sound && !audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
   if (n === 1) {
     const v = el.entropy.value.trim(), note = el.entropyNote.value.trim();
-    if (v !== S.entropy.value || note !== S.entropy.note) setEntropy(v, note);
+    if ((v !== S.entropy.value || note !== S.entropy.note) && !setEntropy(v, note)) return;
     S.entropy.lockedAt = nowISO();
     logEv('entropy_locked', { value: S.entropy.value || '(none)' });
   }
@@ -926,9 +1207,10 @@ async function spin() {
   spinning = false;
   el.readout.classList.add('win'); el.readLbl.textContent = `Winner #${n}`; el.readVal.textContent = d.winner;
   confetti(); renderAll();
+  $('#announcement').textContent = `Winner ${n} of ${L.winnersTarget}: ${d.winner}`;
 }
 async function replay(d) {
-  if (spinning) return; spinning = true; renderAll();
+  if (spinning || exporting) return; spinning = true; renderAll();
   const info = drawInfo(d);
   el.readout.classList.remove('win'); el.readLbl.textContent = `Replay #${d.n}`;
   stageView.setPool(info.vals);
@@ -938,9 +1220,11 @@ async function replay(d) {
   spinning = false; el.readout.classList.add('win'); el.readLbl.textContent = `Winner #${d.n}`; el.readVal.textContent = d.winner; renderAll();
 }
 function setEntropy(v, note) {
-  if (S.draws.length) return;
+  if (S.draws.length || !checkSession()) return false;
+  if (v.length > MAX_ENTROPY_LENGTH || note.length > MAX_ENTROPY_LENGTH || v !== v.toWellFormed() || note !== note.toWellFormed()) { toast('Use valid text of 2,048 characters or fewer for entropy and its note.'); return false; }
+  if (v === S.entropy.value && note === S.entropy.note) return true;
   S.entropy.value = v; S.entropy.note = note; S.entropy.enteredAt = nowISO();
-  logEv('entropy_set', { value: v || '(cleared)', note }); save();
+  logEv('entropy_set', { value: v || '(cleared)', note }); save(); return true;
 }
 
 function buildAudit() {
@@ -973,50 +1257,108 @@ function exportJson() {
   downloadBlob(new Blob([JSON.stringify(a, null, 2)], { type: 'application/json' }), `fairspin-${S.id}-audit.json`);
   toast(`Audit exported · ${a.integrity.sha256.slice(0, 12)}…`);
 }
+function allowSeedExport() {
+  return S.locked && (S.draws.length >= S.locked.winnersTarget || confirm('This reveals the secret seed before every committed winner has been drawn. Anyone with the seed and entropy can calculate the remaining winners. Continue?'));
+}
 
 /* ============================== verify ============================== */
+function auditShapeError(a) {
+  const obj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const str = (v, max) => typeof v === 'string' && v.length <= max;
+  const integer = (v, min, max) => Number.isSafeInteger(v) && v >= min && v <= max;
+  const hash = v => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+  const date = v => {
+    if (typeof v !== 'string' || v.length > 32 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(v)) return false;
+    const t = Date.parse(v); if (!Number.isFinite(t)) return false;
+    const fraction = v.includes('.') ? v.slice(20, -1).padEnd(3, '0') : '000';
+    return new Date(t).toISOString() === v.slice(0, 19) + '.' + fraction + 'Z';
+  };
+  const optionalDate = v => v === null || date(v);
+  const unicode = v => {
+    for (let i = 0; i < v.length; i++) {
+      const c = v.charCodeAt(i);
+      if (c >= 0xD800 && c <= 0xDBFF) { const next = v.charCodeAt(++i); if (!(next >= 0xDC00 && next <= 0xDFFF)) return false; }
+      else if (c >= 0xDC00 && c <= 0xDFFF) return false;
+    }
+    return true;
+  };
+  if (!obj(a) || a.format !== 'fairspin-audit' || a.version !== 1) return 'Expected a FairSpin version 1 audit.';
+  if (!obj(a.list) || !obj(a.commitment) || !obj(a.entropy) || !obj(a.reveal) || !obj(a.session)) return 'Missing audit sections.';
+  const E = a.list.entries, c = a.commitment;
+  if (!Array.isArray(E) || !integer(E.length, 2, MAX_ENTRIES) || E.some(e => !str(e, MAX_ENTRY_LENGTH) || !e.length || e.trim() !== e || /[\r\n]/.test(e) || !unicode(e))) return `Entries must be 2–${MAX_ENTRIES} nonempty, trimmed, single-line strings of at most ${MAX_ENTRY_LENGTH} characters.`;
+  if (a.list.count !== E.length || !hash(a.list.sha256) || !hash(c.listSha256) || !hash(c.seedSha256) || !hash(a.reveal.seed)) return 'Invalid entry count, SHA-256 fingerprint, or 32-byte hexadecimal seed.';
+  if (!obj(a.list.options) || typeof a.list.options.dedupe !== 'boolean' || typeof a.list.options.caseInsensitive !== 'boolean' || !integer(a.list.duplicatesRemoved, 0, MAX_INPUT_BYTES) || !str(a.list.source, 4096)) return 'Invalid list options or source.';
+  if (a.list.options.dedupe && new Set(E.map(e => a.list.options.caseInsensitive ? e.toLowerCase() : e)).size !== E.length) return 'The list contains duplicates despite its deduplication rule.';
+  if (typeof c.removeWinners !== 'boolean' || !integer(c.winnersTarget, 1, MAX_DRAWS)) return 'Invalid committed draw rules.';
+  if (c.removeWinners && c.winnersTarget > E.length) return 'The committed winner count exceeds the available entries.';
+  if (c.removeWinners && enc.encode(E.join('\n')).length * c.winnersTarget > MAX_VERIFY_WORK) return 'This list and winner count exceed the verification work limit. Use a smaller list or fewer winners.';
+  if (!Array.isArray(a.draws) || a.draws.length > MAX_DRAWS || a.draws.length > c.winnersTarget || (c.removeWinners && a.draws.length > E.length)) return 'The draw count exceeds the committed target or available pool.';
+  if (!str(a.entropy.value, MAX_ENTROPY_LENGTH) || !str(a.entropy.note, MAX_ENTROPY_LENGTH) || !unicode(a.entropy.value) || !unicode(a.entropy.note) || a.entropy.value.trim() !== a.entropy.value || a.entropy.note.trim() !== a.entropy.note) return 'Invalid public entropy or source note.';
+  if (!str(a.session.id, 128) || !a.session.id.length || !date(a.session.createdAt) || !date(c.committedAt) || !date(a.generatedAt) || !date(a.reveal.revealedAt) || !optionalDate(a.entropy.enteredAt) || !optionalDate(a.entropy.lockedAt)) return 'Invalid session or timestamps.';
+  if (!Array.isArray(a.events) || a.events.length > 20000 || a.events.some(e => !obj(e) || !date(e.at) || !str(e.type, 128))) return 'Invalid event log.';
+  if (a.integrity !== undefined && (!obj(a.integrity) || !hash(a.integrity.sha256))) return 'Invalid integrity fingerprint.';
+  for (let i = 0; i < a.draws.length; i++) {
+    const d = a.draws[i];
+    if (!obj(d) || d.n !== i + 1 || !date(d.at) || !str(d.winner, MAX_ENTRY_LENGTH) || !integer(d.poolSize, 1, E.length) || !hash(d.poolSha256) || !hash(d.hmac) || !integer(d.ctr, 0, 9999) || !integer(d.uint32, 0, 0xFFFFFFFF) || !integer(d.poolIndex, 0, E.length - 1) || !integer(d.entryIndex, 0, E.length - 1)) return `Invalid draw #${i + 1}; draws must be complete and numbered consecutively from 1.`;
+    if (!obj(d.anim) || !integer(d.anim.durationMs, 3000, 15000) || !integer(d.anim.turns, 6, 9) || typeof d.anim.frac !== 'number' || !Number.isFinite(d.anim.frac) || d.anim.frac < .18 || d.anim.frac > .82) return `Invalid animation for draw #${i + 1}.`;
+  }
+  return '';
+}
+function verificationPool(a, index) {
+  return poolFor(a.list.entries.length, a.draws.slice(0, index).map(d => d.entryIndex), a.commitment.removeWinners).map(i => a.list.entries[i]);
+}
 function verifyAudit(a) {
-  const C = []; const add = (ok, title, detail = '') => C.push({ ok, title, detail });
-  if (!a || a.format !== 'fairspin-audit') { add(false, 'Not a FairSpin audit file'); return { C, ok: false }; }
-  const E = a.list.entries;
-  const lh = sha256hex(E.join('\n'));
-  add(lh === a.list.sha256 && lh === a.commitment.listSha256, 'List hash matches entries', lh);
-  add(E.length === a.list.count, `Entry count is ${E.length}`);
-  let seedOk = false;
-  try { seedOk = sha256hex(unhex(a.reveal.seed)) === a.commitment.seedSha256 && a.reveal.seed.length === 64; } catch (e) {}
-  add(seedOk, 'Revealed seed matches the published commitment', a.commitment.seedSha256);
-  const t0 = Date.parse(a.commitment.committedAt);
-  const firstDraw = a.draws.length ? Date.parse(a.draws[0].at) : null;
-  if (a.entropy.value) {
-    const eAt = Date.parse(a.entropy.enteredAt || a.entropy.lockedAt);
-    add(firstDraw === null || eAt <= firstDraw, `Public entropy fixed before the first draw`, `${a.entropy.value}${a.entropy.note ? ' — ' + a.entropy.note : ''}`);
-  } else C.push({ ok: null, title: 'No public entropy used', detail: 'Valid, but relies on trusting the organiser did not pre-select a seed.' });
-  const taken = []; const results = [];
+  const C = []; const add = (ok, title, detail = '') => C.push({ ok: !!ok, title, detail });
+  const shapeError = auditShapeError(a);
+  if (shapeError) { add(false, 'Invalid audit structure', shapeError); return { C, ok: false, results: [] }; }
+  const E = a.list.entries, lh = sha256hex(E.join('\n'));
+  add(lh === a.list.sha256 && lh === a.commitment.listSha256, 'List fingerprint matches entries', lh);
+  add(sha256hex(unhex(a.reveal.seed)) === a.commitment.seedSha256, 'Revealed seed matches the commitment in this file', a.commitment.seedSha256);
+  const created = Date.parse(a.session.createdAt), committed = Date.parse(a.commitment.committedAt);
+  const generated = Date.parse(a.generatedAt), revealed = Date.parse(a.reveal.revealedAt);
+  let chronological = created <= committed && committed <= generated && committed <= revealed;
+  let previous = committed;
+  for (const d of a.draws) { const at = Date.parse(d.at); if (at < previous || at > generated || at > revealed) chronological = false; previous = at; }
+  const entered = a.entropy.enteredAt === null ? null : Date.parse(a.entropy.enteredAt);
+  const locked = a.entropy.lockedAt === null ? null : Date.parse(a.entropy.lockedAt);
+  if (entered !== null && (entered < created || entered > generated)) chronological = false;
+  if (a.entropy.value && entered === null) chronological = false;
+  if (a.draws.length) {
+    const first = Date.parse(a.draws[0].at);
+    if (locked === null || locked < committed || locked > first || (entered !== null && entered > locked)) chronological = false;
+  } else if (locked !== null) chronological = false;
+  add(chronological, 'Recorded timestamps are in order', 'These are local clock values, not independent proof of publication.');
+  if (!a.entropy.value) C.push({ ok: null, title: 'No public entropy used', detail: 'The organiser could have selected a seed privately. Compare the commitment with a public, timestamped post.' });
+  const taken = [], unchangedPool = a.commitment.removeWinners ? null : poolFor(E.length, [], false);
   for (const d of a.draws) {
-    const pool = poolFor(E.length, taken, a.commitment.removeWinners);
-    let r = null; try { r = computeDraw(a.reveal.seed, lh, a.entropy.value, d.n, pool.length); } catch (e) {}
-    const w = r ? pool[r.poolIndex] : -1;
-    const ph = sha256hex(pool.map(i => E[i]).join('\n'));
-    const ok = r && E[w] === d.winner && w === d.entryIndex && r.ctr === d.ctr && r.hmac === d.hmac && ph === d.poolSha256 && pool.length === d.poolSize && Date.parse(d.at) >= t0;
-    add(!!ok, `Draw #${d.n} → ${short(r ? E[w] : '?', 44)}`, ok ? `slot ${r.poolIndex + 1}/${pool.length} · ctr ${r.ctr} · hmac ${r.hmac.slice(0, 16)}…` : `expected ${r ? E[w] : '?'}, log says ${d.winner}`);
-    results.push({ d, vals: pool.map(i => E[i]) });
+    const pool = unchangedPool || poolFor(E.length, taken, true);
+    if (!pool.length) { add(false, `Draw #${d.n}`, 'The eligible pool is exhausted.'); break; }
+    const r = computeDraw(a.reveal.seed, lh, a.entropy.value, d.n, pool.length), w = pool[r.poolIndex];
+    const ph = a.commitment.removeWinners ? sha256hex(pool.map(i => E[i]).join('\n')) : lh;
+    const ok = E[w] === d.winner && w === d.entryIndex && r.ctr === d.ctr && r.r === d.uint32 && r.hmac === d.hmac && r.poolIndex === d.poolIndex && ph === d.poolSha256 && pool.length === d.poolSize && r.turns === d.anim.turns && r.frac === d.anim.frac;
+    add(ok, `Draw #${d.n} → ${short(E[w], 44)}`, ok ? `slot ${r.poolIndex + 1}/${pool.length} · ctr ${r.ctr} · hmac ${r.hmac.slice(0, 16)}…` : 'The recorded winner, pool, random value, or wheel result does not match the computation.');
     taken.push(w);
   }
-  const ints = a.integrity && a.integrity.sha256;
-  if (ints) { const copy = { ...a }; delete copy.integrity; add(sha256hex(JSON.stringify(copy)) === ints, 'File unmodified since export (integrity hash)', ints); }
-  else C.push({ ok: null, title: 'No integrity hash present' });
-  return { C, ok: C.every(c => c.ok !== false), results, a };
+  if (a.integrity) { const copy = { ...a }; delete copy.integrity; add(sha256hex(JSON.stringify(copy)) === a.integrity.sha256, 'File checksum matches', 'This checksum can be recomputed; it does not authenticate the organiser.'); }
+  else C.push({ ok: null, title: 'No file checksum present' });
+  if (a.draws.length < a.commitment.winnersTarget) C.push({ ok: null, title: `Partial draw: ${a.draws.length} of ${a.commitment.winnersTarget} committed winners recorded`, detail: 'The recorded calculations can be checked, but this is not a completed draw.' });
+  C.push({ ok: null, title: 'Compare with the public commitment', detail: 'Match the list fingerprint, seed commitment, winner count, removal rule and announced entropy source against the post published before the draw. This file alone cannot prove that publication.' });
+  const ok = C.every(c => c.ok !== false);
+  return { C, ok, results: ok ? a.draws.map(d => ({ d })) : [], a };
 }
 function showVerify(text) {
-  const out = $('#vOut'); out.hidden = false;
+  const out = $('#vOut'); out.hidden = false; out._results = []; out._audit = null;
+  verifyView.frozen = true; verifyView.setPool([]); $('#vReadLbl').textContent = 'Verification'; $('#vReadVal').textContent = '—'; $('#vReadout').classList.remove('win');
+  if (typeof text !== 'string' || enc.encode(text).length > MAX_AUDIT_BYTES) { out.innerHTML = '<div class="verdict fail">Audit file is too large (maximum 10 MiB).</div>'; return; }
   let a; try { a = JSON.parse(text); } catch (e) { out.innerHTML = '<div class="verdict fail">Could not parse JSON</div>'; return; }
-  let v; try { v = verifyAudit(a); } catch (e) { out.innerHTML = `<div class="verdict fail">Malformed audit: ${esc(e.message)}</div>`; return; }
-  out.innerHTML = `<div class="verdict ${v.ok ? 'pass' : 'fail'}">${v.ok ? '✓ All checks passed' : '✗ Verification failed'}</div>
-    <div class="note" style="margin:-2px 0 10px">Session <span class="mono">${esc(a.session?.id || '?')}</span> · committed ${esc(fmtUTC(a.commitment?.committedAt))} · ${a.draws?.length || 0} draw(s)</div>
+  let v; try { v = verifyAudit(a); } catch (e) { out.innerHTML = '<div class="verdict fail">Could not verify this malformed audit.</div>'; return; }
+  const summary = v.ok ? (a.draws.length ? `✓ Draw calculations verified${a.draws.length < a.commitment.winnersTarget ? ' · partial draw' : ''}` : '✓ Commitment checks passed · no draws recorded') : '✗ Verification failed';
+  out.innerHTML = `<div class="verdict ${v.ok ? 'pass' : 'fail'}">${summary}</div>
+    ${v.a ? `<div class="note" style="margin:-2px 0 10px">Session <span class="mono">${esc(a.session.id)}</span> · committed ${esc(fmtUTC(a.commitment.committedAt))} · ${a.draws.length} draw(s)</div>` : ''}
     <ul class="checks">${v.C.map(c => `<li class="${c.ok === null ? 'info' : c.ok ? 'pass' : 'fail'}"><span class="ic">${c.ok === null ? 'i' : c.ok ? '✓' : '✗'}</span><span>${esc(c.title)}${c.detail ? `<small>${esc(c.detail)}</small>` : ''}</span></li>`).join('')}</ul>
-    ${v.results && v.results.length ? `<div class="row" style="margin-top:12px">${v.results.map((r, i) => `<button class="btn sm" data-vreplay="${i}">Replay #${r.d.n}</button>`).join('')}</div>` : ''}`;
-  out._results = v.results;
-  if (v.results && v.results.length) { const last = v.results[v.results.length - 1]; verifyView.setPool(last.vals); verifyView.showResult(last.d.anim, last.d.poolIndex); $('#vReadLbl').textContent = `Draw #${last.d.n}`; $('#vReadVal').textContent = last.d.winner; }
+    ${v.results.length ? `<div class="row" style="margin-top:12px">${v.results.map((r, i) => `<button class="btn sm" data-vreplay="${i}">Replay #${esc(r.d.n)}</button>`).join('')}</div>` : ''}`;
+  out._results = v.results; out._audit = v.ok ? a : null;
+  if (v.results.length) { const last = v.results[v.results.length - 1]; verifyView.setPool(verificationPool(a, v.results.length - 1)); verifyView.showResult(last.d.anim, last.d.poolIndex); $('#vReadLbl').textContent = `Draw #${last.d.n}`; $('#vReadVal').textContent = last.d.winner; $('#vReadout').classList.add('win'); }
 }
 
 /* ============================== events ============================== */
@@ -1041,10 +1383,18 @@ function init() {
     else stageView.setPool(S.locked.entries);
   }
   renderAll();
+  if (!restored) save();
 
   document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => {
-    document.querySelectorAll('nav.tabs button').forEach(x => x.setAttribute('aria-selected', x === b));
+    document.querySelectorAll('nav.tabs button').forEach(x => { x.setAttribute('aria-selected', String(x === b)); x.tabIndex = x === b ? 0 : -1; });
     document.querySelectorAll('.tabpane').forEach(p => p.hidden = p.id !== 'tab-' + b.dataset.tab);
+    stageView.resize(); verifyView.resize();
+  });
+  document.querySelector('nav.tabs').addEventListener('keydown', e => {
+    const tabs = Array.from(document.querySelectorAll('nav.tabs button')), i = tabs.indexOf(document.activeElement);
+    if (i < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault(); const next = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : mod(i + (e.key === 'ArrowRight' ? 1 : -1), tabs.length);
+    tabs[next].focus(); tabs[next].click();
   });
   $('#themeToggle').onclick = () => {
     const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -1053,38 +1403,48 @@ function init() {
     catch (e) { toast('Theme changed for this visit; browser storage is unavailable'); }
   };
 
-  el.entries.addEventListener('input', () => { if (S.locked) return; S.raw = el.entries.value; if (S.source.startsWith('csv') && !csvRows) S.source = 'pasted list'; clearTimeout(statT); statT = setTimeout(() => { renderStats(); renderAll(); save(); }, 200); });
-  el.dedupe.onchange = () => { S.opts.dedupe = el.dedupe.checked; renderStats(); save(); };
-  el.ci.onchange = () => { S.opts.ci = el.ci.checked; renderStats(); save(); };
+  el.entries.addEventListener('input', () => { if (S.locked || !checkSession()) return; S.raw = el.entries.value; S.source = 'pasted list'; csvRows = null; $('#csvOpts').hidden = true; clearTimeout(statT); statT = setTimeout(() => { renderStats(); renderAll(); save(); }, 200); });
+  el.dedupe.onchange = () => { if (S.locked || !checkSession()) return; S.opts.dedupe = el.dedupe.checked; renderStats(); renderAll(); save(); };
+  el.ci.onchange = () => { if (S.locked || !checkSession()) return; S.opts.ci = el.ci.checked; renderStats(); renderAll(); save(); };
   el.target.onchange = () => {
-    const v = Math.max(1, parseInt(el.target.value, 10) || 1); el.target.value = v;
+    if (S.locked || !checkSession()) return;
+    const v = Math.min(MAX_DRAWS, Math.max(1, parseInt(el.target.value, 10) || 1)); el.target.value = v;
     if (v === S.opts.target) return;
-    if (S.locked) logEv('winners_target_changed', { from: S.opts.target, to: v });
     S.opts.target = v; save(); renderAll();
   };
-  el.duration.oninput = () => { S.opts.duration = +el.duration.value; el.durVal.textContent = el.duration.value + 's'; save(); };
-  el.remove.onchange = () => { S.opts.remove = el.remove.checked; save(); };
-  el.sound.onchange = () => { S.opts.sound = el.sound.checked; save(); };
+  el.duration.oninput = () => { if (!checkSession()) return; S.opts.duration = Math.min(15, Math.max(3, Math.round(+el.duration.value) || 7)); el.durVal.textContent = S.opts.duration + 's'; save(); };
+  el.remove.onchange = () => { if (S.locked || !checkSession()) return; S.opts.remove = el.remove.checked; save(); };
+  el.sound.onchange = () => { if (!checkSession()) return; S.opts.sound = el.sound.checked; save(); };
   el.lockBtn.onclick = lockList;
   el.spinBtn.onclick = spin;
   el.entropy.onchange = el.entropyNote.onchange = () => { setEntropy(el.entropy.value.trim(), el.entropyNote.value.trim()); renderAll(); };
   el.entropy.oninput = () => renderAll();
 
   $('#sampleBtn').onclick = () => {
+    if (S.locked || !checkSession()) return;
     const names = ['Ava Thompson', 'Noah Patel', 'Mia Rodríguez', 'Liam Chen', 'Zoé Tremblay', 'Ethan Cohen', 'Isla Murphy', 'Lucas Gagnon', 'Sofia Rossi', 'Omar Haddad', 'Chloé Roy', 'Jack Wilson',
       '0x8ba1f109551bD432803012645Ac136ddd64DBA72', '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B', '0x66f820a414680B5bcda5eECA5dea238543F42054', '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', 'Ava Thompson'];
     S.raw = names.join('\n'); S.source = 'sample list'; el.entries.value = S.raw; csvRows = null; $('#csvOpts').hidden = true; renderStats(); renderAll(); save();
   };
 
+  let importRequest = 0;
   const loadFile = async f => {
-    if (S.locked || !f) return;
-    const text = await f.text(); csvName = f.name;
-    const rows = parseCSV(text); const maxCols = Math.max(0, ...rows.map(r => r.length));
-    if (maxCols <= 1) { csvRows = null; $('#csvOpts').hidden = true; S.raw = rows.map(r => r[0] || '').join('\n'); S.source = `file:${f.name}`; el.entries.value = S.raw; renderStats(); renderAll(); save(); return; }
-    csvRows = rows; buildCsvCols(); $('#csvOpts').hidden = false; applyCsv();
+    if (S.locked || !f || !checkSession()) return;
+    if (f.size > MAX_INPUT_BYTES) { toast('Entry files must be 2 MB or smaller.'); return; }
+    const session = S, request = ++importRequest, raw = S.raw;
+    try {
+      const text = await f.text();
+      if (S !== session || S.locked || request !== importRequest || S.raw !== raw || !checkSession()) { toast('Import cancelled because the session changed.'); return; }
+      csvName = f.name;
+      if (/\.txt$/i.test(f.name)) { csvRows = null; $('#csvOpts').hidden = true; S.raw = text.replace(/^\uFEFF/, ''); S.source = `file:${f.name}`; el.entries.value = S.raw; renderStats(); renderAll(); save(); return; }
+      const rows = parseCSV(text), maxCols = rows.reduce((n, r) => Math.max(n, r.length), 0);
+      if (!rows.length) { toast('The file contains no entries.'); return; }
+      if (rows.length > MAX_ENTRIES + 1 || maxCols > 256) { toast('CSV limit: 10,000 entry rows and 256 columns.'); return; }
+      csvRows = rows; $('#csvCol').value = ''; $('#csvHeader').checked = true; buildCsvCols(); $('#csvOpts').hidden = false; applyCsv();
+    } catch (e) { toast(`Import failed: ${e.message}`); }
   };
   function buildCsvCols() {
-    const hdr = $('#csvHeader').checked, head = csvRows[0], n = Math.max(...csvRows.map(r => r.length)), sel = $('#csvCol'); const prev = sel.value;
+    const hdr = $('#csvHeader').checked, head = csvRows[0], n = csvRows.reduce((n, r) => Math.max(n, r.length), 0), sel = $('#csvCol'); const prev = sel.value;
     sel.innerHTML = Array.from({ length: n }, (_, i) => `<option value="${i}">${esc(hdr ? (head[i] || `Column ${i + 1}`) : `Column ${i + 1} — e.g. ${short(head[i] || '', 24)}`)}</option>`).join('');
     // guess the best column: an address-like or name-like header
     let guess = 0;
@@ -1092,67 +1452,100 @@ function init() {
     sel.value = prev && +prev < n ? prev : guess;
   }
   function applyCsv() {
+    if (S.locked || !csvRows || !checkSession()) return;
     const hdr = $('#csvHeader').checked, col = +$('#csvCol').value;
-    const vals = csvRows.slice(hdr ? 1 : 0).map(r => (r[col] || '').trim());
-    S.raw = vals.join('\n'); S.source = `csv:${csvName} · column "${hdr ? (csvRows[0][col] || col + 1) : col + 1}"`;
-    el.entries.value = S.raw; $('#csvInfo').textContent = `${csvRows.length - (hdr ? 1 : 0)} rows from ${csvName}`;
+    const vals = csvRows.slice(hdr ? 1 : 0).map(r => (r[col] || '').replace(/[\r\n]+/g, ' ').trim());
+    S.raw = vals.join('\n'); S.source = `csv:${csvName} · column "${hdr ? short(csvRows[0][col] || col + 1, 200) : col + 1}"`;
+    el.entries.value = S.raw; $('#csvInfo').textContent = `${csvRows.length - (hdr ? 1 : 0)} rows from ${csvName}. Check the column and header setting before locking. Line breaks within a cell become spaces.`;
     renderStats(); renderAll(); save();
   }
   $('#csvFile').onchange = e => { loadFile(e.target.files[0]); e.target.value = ''; };
   $('#csvCol').onchange = applyCsv;
-  $('#csvHeader').onchange = () => { buildCsvCols(); applyCsv(); };
+  $('#csvHeader').onchange = () => { if (S.locked || !csvRows) return; buildCsvCols(); applyCsv(); };
   el.entries.addEventListener('dragover', e => { if (S.locked) return; e.preventDefault(); el.entries.classList.add('drag'); });
   el.entries.addEventListener('dragleave', () => el.entries.classList.remove('drag'));
-  el.entries.addEventListener('drop', e => { el.entries.classList.remove('drag'); if (S.locked) return; if (e.dataTransfer.files.length) { e.preventDefault(); loadFile(e.dataTransfer.files[0]); } });
+  el.entries.addEventListener('drop', e => { el.entries.classList.remove('drag'); if (e.dataTransfer.files.length) { e.preventDefault(); if (!S.locked) loadFile(e.dataTransfer.files[0]); } });
 
   document.addEventListener('click', e => { const c = e.target.closest('.copy[data-copy]'); if (c) copyText($('#' + c.dataset.copy).textContent); });
   $('#revealSeed').onclick = () => {
     const v = $('#hSeedRaw'), b = $('#revealSeed');
     if (b.textContent === 'reveal') {
-      if (!S.draws.length && !confirm('Reveal the secret seed now? Anyone who sees it can compute every winner in advance. Usually you reveal it only after the draw (it is included in the audit log).')) return;
+      if (!allowSeedExport()) return;
       v.textContent = S.locked.seed; b.textContent = 'hide'; logEv('seed_viewed', {}); save();
     } else { v.textContent = '•••••••••• hidden until you reveal it'; b.textContent = 'reveal'; }
   };
   $('#copyStatement').onclick = () => copyText(statement());
   $('#dlCommit').onclick = () => downloadBlob(new Blob([statement() + '\n'], { type: 'text/plain' }), `fairspin-${S.id}-commitment.txt`);
-  $('#dlJson').onclick = exportJson;
+  $('#dlJson').onclick = () => { if (!spinning && !exporting && allowSeedExport()) exportJson(); };
   $('#dlAll').onclick = async () => {
-    exportJson();
-    for (const d of S.draws) {
-      const item = el.winList.querySelector(`[data-n="${d.n}"]`);
-      await sleep(400); downloadBlob(await gifFor(d, item), `fairspin-${S.id}-draw${d.n}.gif`);
-      await sleep(400); downloadBlob(await makeCertificate(drawInfo(d)), `fairspin-${S.id}-draw${d.n}-certificate.png`);
-    }
-    logEv('recordings_exported', { draws: S.draws.length }); save();
+    if (spinning || exporting || !S.draws.length || !allowSeedExport()) return;
+    exporting = true; cancelExport = false; renderAll(); $('#cancelExport').hidden = false;
+    try {
+      exportJson();
+      await sleep(400); downloadBlob(new Blob([statement() + '\n'], { type: 'text/plain' }), `fairspin-${S.id}-commitment.txt`);
+      toast('Preparing recordings. Allow multiple downloads if your browser asks.');
+      for (const d of S.draws) {
+        if (cancelExport) break;
+        const item = el.winList.querySelector(`[data-n="${d.n}"]`);
+        await sleep(400); const gif = await gifFor(d, item); if (cancelExport) break;
+        downloadBlob(gif, `fairspin-${S.id}-draw${d.n}.gif`);
+        await sleep(400); if (cancelExport) break;
+        downloadBlob(await makeCertificate(drawInfo(d)), `fairspin-${S.id}-draw${d.n}-certificate.png`);
+      }
+      logEv(cancelExport ? 'export_stopped' : 'recordings_exported', { draws: S.draws.length }); save();
+      toast(cancelExport ? 'Export stopped. Your draw results are safe.' : 'Downloads prepared. Check your browser downloads.');
+    } catch (e) { toast('Export failed. Your results are safe; try an individual download.'); }
+    finally { exporting = false; $('#cancelExport').hidden = true; renderAll(); }
   };
+  $('#cancelExport').onclick = () => { cancelExport = true; toast('Stopping after the current recording finishes…'); };
   el.winList.addEventListener('click', async e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const item = b.closest('.win-item'), d = S.draws.find(x => x.n === +item.dataset.n);
-    if (b.dataset.act === 'replay') replay(d);
+    if (!d) return;
+    if (b.dataset.act === 'replay') { replay(d); return; }
     if (b.dataset.act === 'copy') copyText(d.winner);
-    if (b.dataset.act === 'gif') { b.disabled = true; b.textContent = 'Rendering…'; const blob = await gifFor(d, item); b.disabled = false; b.textContent = 'GIF'; downloadBlob(blob, `fairspin-${S.id}-draw${d.n}.gif`); logEv('gif_exported', { n: d.n }); save(); }
-    if (b.dataset.act === 'png') { downloadBlob(await makeCertificate(drawInfo(d)), `fairspin-${S.id}-draw${d.n}-certificate.png`); logEv('certificate_exported', { n: d.n }); save(); }
+    if (!['gif', 'png'].includes(b.dataset.act) || spinning || exporting || (b.dataset.act === 'png' && !allowSeedExport())) return;
+    exporting = true; renderAll();
+    try {
+      const gif = b.dataset.act === 'gif';
+      const blob = gif ? await gifFor(d, el.winList.querySelector(`[data-n="${d.n}"]`)) : await makeCertificate(drawInfo(d));
+      if (!blob) throw new Error('No image generated');
+      downloadBlob(blob, `fairspin-${S.id}-draw${d.n}${gif ? '.gif' : '-certificate.png'}`);
+      logEv(gif ? 'gif_exported' : 'certificate_exported', { n: d.n }); save();
+    } catch (e) { toast('Could not create this image. Your results are safe; please try again.'); }
+    finally { exporting = false; renderAll(); }
   });
   $('#clearBtn').onclick = () => {
+    if (spinning || exporting) return;
+    if (!recoveryData && !checkSession()) { toast('Reload to use the latest session before clearing it.'); return; }
     const unsaved = S.draws.length && S.exportedAt !== S.draws.length;
     if (!confirm(unsaved ? 'You have draws that are NOT exported. Clear anyway? This deletes the seed and audit trail from this browser.' : 'Clear this session from the browser and start fresh?')) return;
+    clearTimeout(statT); importRequest++; verifyRequest++;
     try { localStorage.removeItem(KEY); } catch (e) {}
+    storageSnapshot = null; storageBlocked = false; recoveryData = null; $('#storageWarning').hidden = true; $('#recoverStorage').hidden = true;
     gifCache.clear(); restored = false; newSession(); save();
     el.entries.value = ''; el.entropy.value = ''; el.entropyNote.value = ''; el.target.value = 1; csvRows = null; $('#csvOpts').hidden = true; $('#restoredNote').hidden = true;
-    el.dedupe.checked = true; el.ci.checked = false; el.remove.checked = true; el.readout.classList.remove('win'); el.readLbl.textContent = 'Under pointer';
+    el.dedupe.checked = true; el.ci.checked = false; el.remove.checked = true; el.duration.value = 7; el.durVal.textContent = '7s'; el.sound.checked = true; el.readout.classList.remove('win'); el.readLbl.textContent = 'Under pointer';
+    $('#hSeedRaw').textContent = '•••••••••• hidden until you reveal it'; $('#revealSeed').textContent = 'reveal';
+    verifyView.setPool([]); $('#vText').value = ''; $('#vOut').hidden = true; $('#vOut')._results = []; $('#vOut')._audit = null; $('#vReadVal').textContent = 'Verify a log, then replay any draw'; $('#vReadLbl').textContent = 'Replay'; $('#vReadout').classList.remove('win');
+    if (confetti._frame) cancelAnimationFrame(confetti._frame); $('#fx').getContext('2d').clearRect(0, 0, $('#fx').width, $('#fx').height);
     renderStats(); renderAll(); toast('Session cleared');
   };
-  window.addEventListener('beforeunload', e => { if (S.draws.length && S.exportedAt !== S.draws.length) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('beforeunload', e => { if (exporting || (S.draws.length && S.exportedAt !== S.draws.length)) { e.preventDefault(); e.returnValue = ''; } });
+  window.addEventListener('storage', e => { if (e.key === KEY || e.key === null) checkSession(); });
+  $('#recoverStorage').onclick = () => { if (recoveryData) downloadBlob(new Blob([recoveryData], { type: 'application/json' }), 'fairspin-session-recovery.json'); };
 
   // verify tab
-  $('#vFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; const t = await f.text(); $('#vText').value = t; showVerify(t); e.target.value = ''; };
-  $('#vRun').onclick = () => showVerify($('#vText').value);
-  $('#vUseCurrent').onclick = () => { if (!S.locked) { toast('Lock a list first'); return; } const t = JSON.stringify(buildAudit(), null, 2); $('#vText').value = t; showVerify(t); };
+  let verifyRequest = 0;
+  $('#vFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const request = ++verifyRequest; if (f.size > MAX_AUDIT_BYTES) { toast('Audit files must be 10 MB or smaller.'); return; } try { const t = await f.text(); if (request !== verifyRequest) return; $('#vText').value = t; showVerify(t); } catch (error) { toast('Could not read the audit file.'); } };
+  $('#vRun').onclick = () => { verifyRequest++; showVerify($('#vText').value); };
+  $('#vText').addEventListener('input', () => { verifyRequest++; verifyView.cancelSpin(); $('#vOut').hidden = true; $('#vOut')._results = []; $('#vOut')._audit = null; verifyView.setPool([]); $('#vReadVal').textContent = 'Verify the updated log to see results'; $('#vReadout').classList.remove('win'); });
+  $('#vUseCurrent').onclick = () => { if (!S.locked) { toast('Lock a list first'); return; } if (!allowSeedExport()) return; verifyRequest++; const t = JSON.stringify(buildAudit(), null, 2); $('#vText').value = t; showVerify(t); };
   $('#vOut').addEventListener('click', async e => {
     const b = e.target.closest('[data-vreplay]'); if (!b) return;
-    const r = $('#vOut')._results[+b.dataset.vreplay];
+    const out = $('#vOut'), index = +b.dataset.vreplay, r = out._results?.[index]; if (!r || !out._audit) return;
     verifyView.frozen = false; $('#vReadLbl').textContent = `Replay #${r.d.n}`; $('#vReadout').classList.remove('win');
-    verifyView.setPool(r.vals); await verifyView.spin(r.d.anim, r.d.poolIndex, false);
+    verifyView.setPool(verificationPool(out._audit, index)); if (!await verifyView.spin(r.d.anim, r.d.poolIndex, false)) return;
     verifyView.frozen = true; $('#vReadLbl').textContent = `Winner #${r.d.n}`; $('#vReadVal').textContent = r.d.winner; $('#vReadout').classList.add('win');
   });
   $('#copyPy').onclick = () => copyText($('#pyCode').textContent);
