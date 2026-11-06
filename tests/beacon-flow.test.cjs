@@ -294,6 +294,9 @@ async function inTimezone(zone, check) {
   finally { if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous; }
 }
 
+// Use Los Angeles for UTC-8 fixtures. Vancouver's 2026 switch to permanent
+// UTC-7 makes its November offset differ between older and newer tzdata.
+
 function prepareSchedule(app) {
   app.run('S.raw = "Ava\\nNoah\\nMia"; el.entries.value = S.raw; el.target.value = "1"; S.opts.sound = false; S.opts.entropyMode = "auto"; renderAll();');
 }
@@ -369,13 +372,13 @@ test('a saved custom deadline preserves its instant when reopened in a different
     await chooseScheduledTime(app, '2026-11-06T14:30'); app.run('lockList()');
     storage = app.storage; plan = plain(app.run('S.locked.beacon'));
   });
-  await inTimezone('America/Vancouver', () => {
+  await inTimezone('America/Los_Angeles', () => {
     const restored = harness({ initial: storage, now: now + 30000 });
     assert.equal(restored.run('restored'), true);
     assert.deepEqual(plain(restored.run('S.locked.beacon')), plan);
     assert.equal(restored.run('S.opts.beaconAt'), '2026-11-06T19:30:00.000Z');
     assert.equal(restored.node('#beaconAt').value, '2026-11-06T11:30');
-    assert.match(restored.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+    assert.match(restored.node('#beaconTimeZone').textContent, /America\/Los_Angeles/);
     assert.equal(restored.requests.length, 0);
   });
 });
@@ -402,24 +405,24 @@ test('changing the operating-system timezone in the same tab cannot reinterpret 
   const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
   await chooseScheduledTime(app, '2026-11-07T18:00');
   assert.equal(app.run('S.opts.beaconAt'), '2026-11-07T23:00:00.000Z');
-  process.env.TZ = 'America/Vancouver';
+  process.env.TZ = 'America/Los_Angeles';
   app.run('lockList()');
   assert.equal(app.run('S.opts.beaconAt'), '2026-11-07T23:00:00.000Z');
   assert.equal(app.run('S.locked.beacon.scheduledAt'), '2026-11-07T23:00:00.000Z');
   assert.equal(app.node('#beaconAt').value, '2026-11-07T15:00');
-  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
-  assert.match(app.node('#beaconDeadline').textContent, /America\/Vancouver/);
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Los_Angeles/);
+  assert.match(app.node('#beaconDeadline').textContent, /America\/Los_Angeles/);
   assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
 }));
 
 test('same-tab timezone changes refresh the displayed deadline, and later edits use the new local timezone', () => inTimezone('America/Toronto', async () => {
   const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
   await chooseScheduledTime(app, '2026-11-07T18:00');
-  process.env.TZ = 'America/Vancouver';
+  process.env.TZ = 'America/Los_Angeles';
   app.run('renderAll()');
   assert.equal(app.node('#beaconAt').value, '2026-11-07T15:00');
   assert.equal(app.run('S.opts.beaconAt'), '2026-11-07T23:00:00.000Z');
-  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Los_Angeles/);
   app.node('#beaconAt').value = '2026-11-07T17:00';
   await app.node('#beaconAt').dispatch('input');
   assert.equal(app.run('S.opts.beaconAt'), '2026-11-08T01:00:00.000Z');
@@ -431,12 +434,12 @@ test('same-tab timezone changes refresh the displayed deadline, and later edits 
 test('an input event immediately after a same-tab timezone change keeps the new edit and interprets it locally', () => inTimezone('America/Toronto', async () => {
   const app = harness({ now: Date.parse('2026-11-07T18:00:00.000Z') }); prepareSchedule(app);
   await chooseScheduledTime(app, '2026-11-07T18:00');
-  process.env.TZ = 'America/Vancouver';
+  process.env.TZ = 'America/Los_Angeles';
   app.node('#beaconAt').value = '2026-11-07T17:00';
   await app.node('#beaconAt').dispatch('input');
   assert.equal(app.node('#beaconAt').value, '2026-11-07T17:00');
   assert.equal(app.run('S.opts.beaconAt'), '2026-11-08T01:00:00.000Z');
-  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Los_Angeles/);
   app.run('lockList()');
   assert.equal(app.run('S.locked.beacon.scheduledAt'), '2026-11-08T01:00:00.000Z');
 }));
@@ -449,11 +452,11 @@ test('a same-tab timezone refresh preserves an invalid edit and its error instea
   assert.equal(app.run('S.opts.beaconAt'), '');
   const error = app.node('#beaconDateError').textContent;
   assert.ok(error);
-  process.env.TZ = 'America/Vancouver'; app.run('renderAll()');
+  process.env.TZ = 'America/Los_Angeles'; app.run('renderAll()');
   assert.equal(app.node('#beaconAt').value, '2027-03-14T02:30');
   assert.equal(app.run('S.opts.beaconAt'), '');
   assert.equal(app.node('#beaconDateError').textContent, error);
-  assert.match(app.node('#beaconTimeZone').textContent, /America\/Vancouver/);
+  assert.match(app.node('#beaconTimeZone').textContent, /America\/Los_Angeles/);
   app.run('lockList()'); assert.equal(app.run('S.locked'), null);
 }));
 
