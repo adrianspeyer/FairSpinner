@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LicenseRef-PolyForm-Perimeter-1.0.1
-# License: https://polyformproject.org/licenses/perimeter/1.0.1
+# SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+# License: https://polyformproject.org/licenses/noncommercial/1.0.0
 # Required Notice: Copyright (c) 2026 Adrian Speyer (https://github.com/adrianspeyer/FairSpinner)
 """Independent FairSpin v1 verifier. Python 3, standard library only.
 

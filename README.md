@@ -4,7 +4,7 @@ A privacy-first giveaway and contest spinner with cryptographic, independently v
 
 **[Open the live demo](https://adrianspeyer.github.io/FairSpinner/) · [Fork the project](https://github.com/adrianspeyer/FairSpinner/fork) · [Download ZIP](https://github.com/adrianspeyer/FairSpinner/archive/refs/heads/main.zip)**
 
-**Source available under [PolyForm Perimeter 1.0.1](./LICENSE).** You can run draws for personal or business purposes. The license restricts providing a competing product or service, including free competitors; see the full terms below.
+**Source available under [PolyForm Noncommercial 1.0.0](./LICENSE).** Noncommercial use is permitted. Commercial use outside the license’s expressly permitted purposes requires separate permission from Adrian Speyer; see the full terms below.
 
 ## Quick start
 
@@ -141,11 +141,13 @@ The [`.gitignore`](./.gitignore) excludes macOS/Windows metadata, editor tempora
 
 ## License
 
-Copyright (c) 2026 Adrian Speyer. FairSpin is **source available**, under the unmodified [PolyForm Perimeter License 1.0.1](./LICENSE), with the attribution in [NOTICE](./NOTICE). It is not an OSI open-source license because it restricts competing products.
+Copyright (c) 2026 Adrian Speyer. FairSpin is **source available**, under the unmodified [PolyForm Noncommercial License 1.0.0](./LICENSE), with the attribution in [NOTICE](./NOTICE). It is not an OSI open-source license because it restricts commercial use.
 
-You may use FairSpin to run draws, including business giveaways, subject to the license. You may not use it to provide others with a product or service that competes with FairSpin, including a free competing offering. Preserve the license text or URL and required copyright notice when sharing copies. The full license controls; contact the repository owner for separate permission if your intended use is outside its terms.
+The license permits noncommercial use, modification, and redistribution. It also expressly permits uses by the charitable, educational, research, public-safety, environmental, and government organizations described in its terms. Commercial use outside those permitted purposes—including commercial giveaway campaigns, paid services, or commercial redistribution—requires separate written permission from Adrian Speyer. Contact the [repository owner](https://github.com/adrianspeyer) to discuss permission before proceeding. Preserve the license text or URL and required copyright notice when sharing copies. The full license controls.
 
 The license includes an as-is warranty disclaimer and liability exclusion to the extent allowed by law. It does not guarantee immunity or technically prevent copying. It governs this software, not ownership of your entrant lists or draw results.
+
+**License history:** This revision uses PolyForm Noncommercial 1.0.0. [Commit 81dcd45](https://github.com/adrianspeyer/FairSpinner/commit/81dcd45c3a2300828302c78a85d1ec1543392a8d) was previously published under PolyForm Perimeter 1.0.1; this change does not withdraw permissions already granted for copies of that revision under its original terms.
 
 ## Privacy
 
@@ -157,7 +159,7 @@ Entry data is never uploaded by the app. All hashing, drawing, GIF encoding and 
 |---|---|
 | `index.html` | GitHub Pages entry point and the whole app |
 | `verify.py` | Independent Python verifier (standard library only) |
-| `LICENSE`, `NOTICE` | PolyForm Perimeter terms and required attribution |
+| `LICENSE`, `NOTICE` | PolyForm Noncommercial terms and required attribution |
 | `.gitignore` | Exclude local metadata, secrets and private draw exports |
 | `tests/*.test.cjs` | Dependency-free automated security and QA tests |
 | `scripts/update-csp.cjs` | Refresh or check the inline script allowlist |
