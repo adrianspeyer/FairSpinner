@@ -4,6 +4,8 @@ A privacy-first giveaway and contest spinner with cryptographic, independently v
 
 **[Open the live demo](https://adrianspeyer.github.io/FairSpinner/) · [Fork the project](https://github.com/adrianspeyer/FairSpinner/fork) · [Download ZIP](https://github.com/adrianspeyer/FairSpinner/archive/refs/heads/main.zip)**
 
+**Source available under [PolyForm Perimeter 1.0.1](./LICENSE).** You can run draws for personal or business purposes. The license restricts providing a competing product or service, including free competitors; see the full terms below.
+
 ## Quick start
 
 1. Open [`index.html`](./index.html) in a modern browser (Chrome, Edge, Firefox, or Safari). Double-clicking the file works, too.
@@ -11,6 +13,7 @@ A privacy-first giveaway and contest spinner with cryptographic, independently v
 3. Set the rules, click **Lock list & generate seed**, and post the commitment statement publicly.
 4. (Recommended) Paste a public entropy value, such as a future Bitcoin block hash you announced in advance.
 5. Spin. Then download the audit log, GIFs and certificates before you clear the session. Audit files contain all entries and the secret seed; review them before sharing.
+6. For multiple committed winners, click **Next draw** to select the next winner. After the session is complete, choose remaining entries, all entries, or a new list, then **Save history & start next draw**. The next session requires a fresh commitment.
 
 Try **Load sample** to explore the full flow without preparing a list.
 
@@ -29,6 +32,7 @@ You can fork the repository or use **Download ZIP** on the app page to get your 
 - **Light and dark themes** follow the device preference initially and can be changed with the header toggle. The selection is remembered in this browser.
 - **Draw** guides you from list import through commitment to the animated draw and downloadable results.
 - **Verify** independently checks an exported audit JSON and can replay its draws.
+- **History** keeps completed sessions in this browser when you start the next draw. Expand a session to see its winners and event log, download its audit, or verify and replay it.
 - **How it works** explains the commit–reveal process, limitations, and includes a copyable Python verifier.
 - The UI includes draw-progress guidance, keyboard-operated tabs, labelled inputs, screen-reader result announcements, narrow-screen layouts, and reduced-motion support for the wheel and confetti.
 
@@ -48,7 +52,9 @@ You can fork the repository or use **Download ZIP** on the app page to get your 
   - **Commitment statement:** a `.txt` file, or copy it to the clipboard.
   - **Download everything:** audit, commitment, GIFs and certificates, with progress and a stop control. Your browser may ask to allow multiple downloads.
 - **Verify tab:** load any audit JSON. It validates the format, rules and consecutive draw sequence, recomputes every recorded draw, and enables replay only after verification succeeds. The file checksum is not an authenticity guarantee.
-- **Storage:** the session is kept in this browser's local storage so it survives a refresh. **Clear session** wipes it and clears the verifier view. Corrupt sessions are preserved for recovery; stale tabs stop saving when they detect changes from another tab. You get a warning before closing with draws you haven't exported.
+- **Next draw:** continue through the originally committed winner count with one click. Once complete, archive the session and prepare a fresh draw using remaining entries, the entire list, or a new list. Remaining entries are calculated by entry position, so kept duplicate names remain separate chances. The seed and entropy are reset, and the new commitment must be published before drawing.
+- **History:** up to 20 completed sessions and 3 MiB of browser-local storage, including full audits and event logs. History must save successfully before a new session replaces the current one. Capacity or storage errors leave the current results available; old records are never silently removed. Download all history as JSON, or download and verify individual audits. The history download is a record bundle; the Verify tab accepts its individual audit objects, not the entire bundle.
+- **Storage:** the current session is kept in this browser's local storage so it survives a refresh. **Clear session** removes only the current session and clears the verifier view; **Clear history** separately removes archived sessions. Corrupt data is preserved for recovery; stale tabs stop saving when they detect changes from another tab. You get a warning before closing with draws you haven't exported.
 
 ## How the draw works
 
@@ -106,7 +112,7 @@ Each GIF also carries an embedded comment with the draw number, timestamp, winne
 - **The integrity hash spots accidental or naive edits, not a determined forger.** Anyone can recompute it. Real tamper resistance comes from the commitment being published *before* the draw.
 - **Timestamps come from the local computer's clock.** The public commitment post is the trustworthy timestamp.
 - **Local storage belongs to one browser profile.** It is not synced, and private/incognito windows may discard it. Export before closing.
-- **The seed is stored in local storage until you clear the session.** Don't run draws on a shared computer without clearing afterwards.
+- **Seeds are stored in local storage.** Clear both the current session and History after using a shared computer. Downloaded files must be managed separately.
 
 ## Input and compatibility limits
 
@@ -129,6 +135,18 @@ After changing either inline JavaScript block, run `node scripts/update-csp.cjs`
 
 Regression tests cover independent SHA-256/HMAC vectors, rejection sampling, tampered audits, Python verification, session recovery, stale-tab protection, CSV parsing, reduced-motion/cancellation, and byte-for-byte GIF decoding. See [SECURITY.md](./SECURITY.md) for review scope and remaining trust boundaries. Browser visual QA is a separate release check; mocked DOM tests do not establish browser compatibility or visual correctness.
 
+### Keeping the public repository clean
+
+The [`.gitignore`](./.gitignore) excludes macOS/Windows metadata, editor temporary files, Python caches and virtual environments, `.env` secrets, and generated FairSpin downloads. Put real entry lists in `private-data/` and downloaded records in `exports/`; both directories are ignored. Ordinary JSON/CSV test fixtures and `.env.example` remain trackable. Ignore rules do not remove files that have already been committed, and Git can override them with `--force`; review staged files before pushing. The application never writes browser History into this repository.
+
+## License
+
+Copyright (c) 2026 Adrian Speyer. FairSpin is **source available**, under the unmodified [PolyForm Perimeter License 1.0.1](./LICENSE), with the attribution in [NOTICE](./NOTICE). It is not an OSI open-source license because it restricts competing products.
+
+You may use FairSpin to run draws, including business giveaways, subject to the license. You may not use it to provide others with a product or service that competes with FairSpin, including a free competing offering. Preserve the license text or URL and required copyright notice when sharing copies. The full license controls; contact the repository owner for separate permission if your intended use is outside its terms.
+
+The license includes an as-is warranty disclaimer and liability exclusion to the extent allowed by law. It does not guarantee immunity or technically prevent copying. It governs this software, not ownership of your entrant lists or draw results.
+
 ## Privacy
 
 Entry data is never uploaded by the app. All hashing, drawing, GIF encoding and storage happen in the browser. A restrictive Content Security Policy allows only the two application scripts and blocks network connections, embedded objects and form submissions. Clicking GitHub links navigates to GitHub; sharing downloaded files is your decision. The SHA-256 and HMAC code is pure JavaScript, so it works on `file://` with no network or secure context.
@@ -139,9 +157,12 @@ Entry data is never uploaded by the app. All hashing, drawing, GIF encoding and 
 |---|---|
 | `index.html` | GitHub Pages entry point and the whole app |
 | `verify.py` | Independent Python verifier (standard library only) |
+| `LICENSE`, `NOTICE` | PolyForm Perimeter terms and required attribution |
+| `.gitignore` | Exclude local metadata, secrets and private draw exports |
 | `tests/*.test.cjs` | Dependency-free automated security and QA tests |
 | `scripts/update-csp.cjs` | Refresh or check the inline script allowlist |
 | `fairspin-<session>-audit.json` | Exported audit log |
 | `fairspin-<session>-drawN.gif` | Timestamped spin recording |
 | `fairspin-<session>-drawN-certificate.png` | Shareable result card |
 | `fairspin-<session>-commitment.txt` | Pre-draw commitment statement |
+| `fairspin-history.json` | Local history download containing archived audits |

@@ -28,6 +28,10 @@ The session, including the secret seed, lives in browser local storage. It is ac
 
 Audit exports include the complete entry list and seed; certificates also reveal the seed. Early disclosure makes remaining outcomes predictable once entropy is known. Sharing artifacts is a separate privacy decision. Stale-tab detection reduces conflicting edits, but local storage does not provide transactional multi-tab coordination. Storage failures are reported; refreshing an unsaved session can lose it.
 
+Completed sessions can be archived in browser-local History before starting a fresh draw. History stores complete audits, including entries and seeds, under a separate storage key. It is capped at 20 sessions / 3 MiB and never silently evicts records. Archive writes precede the current-session transition; failures keep the old session available. History is schema- and checksum-checked when read, with full cryptographic recomputation when you choose Verify & replay. A local checksum does not authenticate the record. Clear session preserves History; on a shared device, clear both separately and manage downloaded files as well.
+
+The public repository contains application source and synthetic test fixtures, not browser session data. `.gitignore` excludes OS metadata, environment secrets, Python caches, FairSpin export filenames, and the `private-data/` and `exports/` directories. Git ignore rules are an accidental-commit safeguard, not an access control or a way to remove previously committed information.
+
 ## QA scope
 
 Run `node --test tests/*.test.cjs` and `node scripts/update-csp.cjs --check`. Tests compare cryptography to Node crypto, independently decode GIF frames, validate malicious and valid audit fixtures in JavaScript and Python, and exercise session and animation behavior with DOM/canvas stubs.

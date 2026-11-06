@@ -1,0 +1,49 @@
+# macOS metadata and filesystem housekeeping
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+.TemporaryItems/
+.VolumeIcon.icns
+
+# Windows metadata
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+
+# Editor swap, backup and lock files
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+
+# Python bytecode and local virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local environment values; keep a sanitized example shareable
+.env
+.env.*
+!.env.example
+
+# Put private entry lists and local downloads in these directories.
+# Do not commit real entrants, seeds or draw records to the public repo.
+/private-data/
+/exports/
+
+# FairSpin-generated downloads, wherever they are saved in the checkout
+fairspin-*-audit.json
+fairspin-*-draw*.gif
+fairspin-*-draw*-certificate.png
+fairspin-*-commitment.txt
+fairspin-*history*.json
+fairspin-*recovery*.json

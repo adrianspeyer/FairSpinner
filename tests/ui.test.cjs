@@ -275,14 +275,40 @@ function appHarness(storage = new Map()) {
     node.value = attributes.match(/\bvalue="([^"]*)"/)?.[1] || '';
     node.checked = /\bchecked\b/.test(attributes); node.hidden = /\bhidden\b/.test(attributes);
     node.disabled = /\bdisabled\b/.test(attributes);
+    const tabName = attributes.match(/\bdata-tab="([^"]*)"/)?.[1];
+    if (tabName) node.dataset.tab = tabName;
     elements.set(id, node);
   }
+  // Model static select children as nodes so descendant option selectors behave
+  // like the browser DOM, including their value, text and disabled properties.
+  for (const match of html.matchAll(/<select\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/select>/g)) {
+    const select = elements.get(match[1]);
+    select.options = [...match[2].matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/g)].map((optionMatch) => {
+      const option = element('option');
+      option.value = optionMatch[1].match(/\bvalue="([^"]*)"/)?.[1] ?? optionMatch[2];
+      option.textContent = optionMatch[2]; option.parentElement = select;
+      option.disabled = /\bdisabled\b/.test(optionMatch[1]);
+      option.selected = /\bselected\b/.test(optionMatch[1]);
+      return option;
+    });
+    select.value = select.options.find((option) => option.selected)?.value ?? select.options[0]?.value ?? '';
+    select.querySelector = (selector) => {
+      const value = selector.match(/^option\[value="([^"]*)"\]$/)?.[1];
+      if (value !== undefined) return select.options.find((option) => option.value === value) ?? null;
+      throw new Error(`Unsupported select query: ${selector}`);
+    };
+  }
   elements.get('revealSeed').textContent = 'reveal';
-  const tabs = ['draw', 'verify', 'how'].map((name) => { const tab = element('button'); tab.dataset.tab = name; return tab; });
+  const tabs = [...elements.values()].filter((node) => node.tagName === 'BUTTON' && node.dataset.tab);
   const nav = element('nav'), importLabel = element('label'), meta = element('meta');
   document = eventTarget({
     documentElement: { dataset: { theme: 'dark' } }, activeElement: null, body: element('body'),
     querySelector: (selector) => {
+      const descendant = selector.match(/^#([\w-]+)\s+(.+)$/);
+      if (descendant) {
+        const parent = elements.get(descendant[1]); assert.ok(parent, `DOM contains #${descendant[1]}`);
+        return parent.querySelector(descendant[2]);
+      }
       if (selector.startsWith('#')) { const node = elements.get(selector.slice(1)); assert.ok(node, `DOM contains ${selector}`); return node; }
       if (selector === 'nav.tabs') return nav;
       if (selector === 'label[for=csvFile]') return importLabel;
@@ -291,7 +317,7 @@ function appHarness(storage = new Map()) {
     },
     querySelectorAll: (selector) => {
       if (selector === 'nav.tabs button') return tabs;
-      if (selector === '.tabpane') return ['draw', 'verify', 'how'].map((name) => elements.get(`tab-${name}`));
+      if (selector === '.tabpane') return tabs.map((tab) => elements.get(`tab-${tab.dataset.tab}`));
       throw new Error(`Unsupported DOM query: ${selector}`);
     },
     createElement: element,
@@ -342,6 +368,8 @@ test('application initializes, loads sample, locks rules, draws, verifies and re
   assert.equal(app.run('verifyAudit(buildAudit()).ok'), true);
   assert.equal(app.elements.get('readVal').textContent, app.run('S.draws[0].winner'));
   assert.equal(app.elements.get('spinBtn').disabled, true);
+  assert.equal(app.elements.get('nextDrawPanel').hidden, false);
+  assert.equal(app.elements.get('nextSessionBtn').disabled, false);
   assert.match(app.elements.get('announcement').textContent, /^Winner 1 of 1:/);
   await app.click('vUseCurrent');
   assert.match(app.elements.get('vOut').innerHTML, /Draw calculations verified/);
@@ -351,6 +379,36 @@ test('application initializes, loads sample, locks rules, draws, verifies and re
   assert.equal(restored.run('S.locked.seedHash'), commitment);
   assert.equal(restored.run('verifyAudit(buildAudit()).ok'), true);
   assert.equal(restored.elements.get('readVal').textContent, app.run('S.draws[0].winner'));
+});
+
+test('planned winners use NEXT DRAW and offer a new session only after completion', async () => {
+  const app = appHarness();
+  await app.click('sampleBtn');
+  app.elements.get('target').value = '2'; await app.elements.get('target').dispatch('change');
+  await app.click('lockBtn');
+  assert.equal(app.elements.get('nextDrawPanel').hidden, true);
+  await app.click('spinBtn');
+  assert.match(app.elements.get('spinBtn').textContent, /^NEXT DRAW/);
+  assert.equal(app.elements.get('spinBtn').disabled, false);
+  assert.equal(app.elements.get('nextDrawPanel').hidden, true);
+  await app.click('spinBtn');
+  assert.equal(app.elements.get('spinBtn').disabled, true);
+  assert.equal(app.elements.get('nextDrawPanel').hidden, false);
+  assert.equal(app.elements.get('nextEntries').value, 'remaining');
+  assert.equal(app.elements.get('nextEntries').options.find((option) => option.value === 'remaining').disabled, false);
+});
+
+test('History participates in tab navigation and keeps the current draw accessible', async () => {
+  const app = appHarness();
+  await app.click('nav-history');
+  assert.equal(app.elements.get('tab-history').hidden, false);
+  assert.equal(app.elements.get('tab-draw').hidden, true);
+  assert.equal(app.elements.get('nav-history').getAttribute('aria-selected'), 'true');
+  assert.match(app.elements.get('historyCurrent').textContent, /current draft/);
+  await app.click('backToDraw');
+  assert.equal(app.elements.get('tab-history').hidden, true);
+  assert.equal(app.elements.get('tab-draw').hidden, false);
+  assert.equal(app.elements.get('nav-draw').getAttribute('aria-selected'), 'true');
 });
 
 test('clear resets controls, concealed seed and verification state', async () => {

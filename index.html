@@ -1,8 +1,14 @@
 <!DOCTYPE html>
+<!--
+SPDX-License-Identifier: LicenseRef-PolyForm-Perimeter-1.0.1
+Licensed under PolyForm Perimeter 1.0.1:
+https://polyformproject.org/licenses/perimeter/1.0.1
+Required Notice: Copyright (c) 2026 Adrian Speyer (https://github.com/adrianspeyer/FairSpinner)
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-THXPlp6a7zFH1KdKho9S3cYwc4PvVjNVPNekXeOQUJc='; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-Bl5S+AuQgooKqm48MnVmhvqBLTvdYKXnF5+E2Z0uKv4=' 'sha256-hy5/iZEQ8T6DFiilKLCjWsywY/UT4KMPhMa1AmuTN94='; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>FairSpin — verifiable random draw</title>
 <meta name="description" content="Run a transparent, cryptographically verifiable giveaway draw. Free, private, and works offline.">
@@ -188,6 +194,13 @@ pre.code{background:var(--field);border:1px solid var(--line);border-radius:10px
 .stage-title{display:flex;width:100%;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
 .stage-title h2{font-size:13px;margin:0;letter-spacing:.08em;text-transform:uppercase}
 .stage-title span{font-size:12px;color:var(--muted)}
+.next-draw{width:100%;max-width:560px;margin-top:12px;padding:16px;border:1px solid var(--acc);border-radius:12px;background:var(--positive)}
+.next-draw .btn{width:100%;margin-top:12px}
+.history-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.history-head h2{margin:0;font-size:26px;letter-spacing:-.025em}
+.history-item summary{cursor:pointer;font-weight:700;overflow-wrap:anywhere}
+.history-item .meta{font-size:12px;color:var(--muted);margin:6px 0 12px}
+.history-item li{overflow-wrap:anywhere}
 label.btn{cursor:pointer}
 label.btn:focus-within{outline:2px solid var(--acc);outline-offset:2px}
 @media(max-width:480px){.win-item{grid-template-columns:32px minmax(0,1fr);gap:8px}.win-item .acts{grid-column:2;justify-content:flex-start}.logbody div{grid-template-columns:1fr;gap:0}.hash{flex-wrap:wrap}.hash .v{min-width:140px}.wsec-h .row{gap:6px}.wsec-h .btn{white-space:normal;text-align:center}.intro h1{font-size:34px}.journey li{min-width:100px}.hdr-right .pill{display:none}.btn,.copy,nav.tabs button{min-height:40px}.grid,.vgrid{grid-template-columns:minmax(0,1fr)}}
@@ -205,6 +218,7 @@ footer a{text-decoration:none}
   <nav class="tabs" role="tablist" aria-label="FairSpin sections">
     <button id="nav-draw" role="tab" data-tab="draw" aria-controls="tab-draw" aria-selected="true">Draw</button>
     <button id="nav-verify" role="tab" data-tab="verify" aria-controls="tab-verify" aria-selected="false" tabindex="-1">Verify</button>
+    <button id="nav-history" role="tab" data-tab="history" aria-controls="tab-history" aria-selected="false" tabindex="-1">History</button>
     <button id="nav-how" role="tab" data-tab="how" aria-controls="tab-how" aria-selected="false" tabindex="-1">How it works</button>
   </nav>
   <div class="hdr-right">
@@ -320,6 +334,12 @@ footer a{text-decoration:none}
         <div class="readout" id="readout"><span class="lbl" id="readLbl">Under pointer</span><span class="val" id="readVal">—</span></div>
         <div class="spinrow"><button class="btn primary" id="spinBtn" disabled>SPIN</button></div>
         <div class="spinhint" id="spinHint"></div>
+        <div class="next-draw" id="nextDrawPanel" hidden>
+          <label class="fld" for="nextEntries">Entries for the next draw</label>
+          <select id="nextEntries"><option value="remaining">Remaining entries</option><option value="all">All entries again</option><option value="blank">Start with a new list</option></select>
+          <p class="note">Your completed draw is saved in History first. The next draw starts with a fresh seed and commitment; review the rules and publish the new commitment before spinning.</p>
+          <button class="btn primary" id="nextSessionBtn">Save history &amp; start next draw</button>
+        </div>
 
         <div class="winners">
           <div class="wsec-h"><h3>Results</h3>
@@ -336,6 +356,16 @@ footer a{text-decoration:none}
       </div>
     </div>
   </div>
+</section>
+
+<!-- ================= HISTORY ================= -->
+<section class="tabpane" id="tab-history" role="tabpanel" aria-labelledby="nav-history" hidden>
+  <div class="history-head"><div><h2>Draw history</h2><p class="note">Private to this browser. Nothing is sent to GitHub or a server. Export a backup before clearing browser data.</p></div><div class="row"><button class="btn" id="exportHistory">Download history</button><button class="btn ghost danger" id="clearHistory">Clear history</button></div></div>
+  <div class="banner"><span id="historyCurrent"></span><button class="btn sm" id="backToDraw">Back to current draw</button></div>
+  <p class="note" id="historyStatus" role="status"></p>
+  <div class="row" style="margin:12px 0"><button class="btn sm" id="recoverHistory" hidden>Download history for recovery</button></div>
+  <div id="historyList"></div>
+  <p class="note">Up to 20 completed sessions and 3 MiB of local history. Old records are never automatically deleted. Each saved audit contains the full entry list and seed. Clear session removes only the current session; use Clear history to remove saved sessions.</p>
 </section>
 
 <!-- ================= VERIFY ================= -->
@@ -384,6 +414,9 @@ footer a{text-decoration:none}
   <div class="row" style="margin-bottom:6px"><button class="btn sm" id="copyPy">Copy script</button></div>
 <details><summary>View the complete Python verifier</summary>
 <pre class="code" id="pyCode">#!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-PolyForm-Perimeter-1.0.1
+# License: https://polyformproject.org/licenses/perimeter/1.0.1
+# Required Notice: Copyright (c) 2026 Adrian Speyer (https://github.com/adrianspeyer/FairSpinner)
 """Independent FairSpin v1 verifier. Python 3, standard library only.
 
 Usage: python3 verify.py fairspin-SESSION-audit.json
@@ -570,7 +603,7 @@ if __name__ == "__main__":
 </pre></details>
 </section>
 </main>
-<footer><span>FairSpin · Free, private, and open to verification.</span><span>All processing stays in your browser. <a href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">Open-source on GitHub</a></span></footer>
+<footer><span>FairSpin · Private, source available, and open to verification. <a href="https://polyformproject.org/licenses/perimeter/1.0.1" target="_blank" rel="noopener noreferrer">PolyForm Perimeter license</a></span><span>All processing stays in your browser. <a href="https://github.com/adrianspeyer/FairSpinner" target="_blank" rel="noopener noreferrer">Source on GitHub</a></span></footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="sr-only" id="announcement" role="status" aria-live="polite" aria-atomic="true"></div>
 
@@ -993,8 +1026,11 @@ function makeCertificate(info) {
 
 /* ============================== state ============================== */
 const KEY = 'fairspin.session.v1';
+const HISTORY_KEY = 'fairspin.history.v1', MAX_HISTORY_SESSIONS = 20, MAX_HISTORY_BYTES = 3 * 1024 * 1024;
+let H = { version: 1, sessions: [] }, historyRaw = null, historyProblem = '';
 let S = null, spinning = false, exporting = false, restored = false, cancelExport = false;
 let storageSnapshot = null, storageBlocked = false, recoveryData = null;
+let importRequest = 0, verifyRequest = 0, nextPreparedSession = '', verifyingHistoryKey = null;
 const gifCache = new Map();
 function newSession() {
   S = { v: 1, id: hex(crypto.getRandomValues(new Uint8Array(4))), createdAt: nowISO(), raw: '', source: 'pasted list',
@@ -1051,6 +1087,85 @@ function validSession(j) {
   try { S = j; return verifyAudit(buildAudit()).ok; } catch (e) { return false; } finally { S = previous; }
 }
 
+/* Completed sessions are archived locally, never uploaded or silently evicted. */
+function loadHistory() {
+  H = { version: 1, sessions: [] }; historyRaw = null; historyProblem = '';
+  try {
+    historyRaw = localStorage.getItem(HISTORY_KEY);
+    if (historyRaw) {
+      if (historyRaw.length * 2 > MAX_HISTORY_BYTES) throw new Error('History exceeds its storage limit.');
+      const data = JSON.parse(historyRaw);
+      if (!data || data.version !== 1 || !Array.isArray(data.sessions) || data.sessions.length > MAX_HISTORY_SESSIONS) throw new Error('Invalid history format.');
+      const seen = new Set();
+      for (const item of data.sessions) {
+        if (!item || typeof item.archivedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(item.archivedAt) || !Number.isFinite(Date.parse(item.archivedAt)) || auditShapeError(item.audit)) throw new Error('A saved audit could not be read safely.');
+        const a = item.audit, key = a.commitment.seedSha256, copy = { ...a }; delete copy.integrity;
+        if (a.draws.length !== a.commitment.winnersTarget || seen.has(key) || !a.integrity || sha256hex(JSON.stringify(copy)) !== a.integrity.sha256) throw new Error('A saved audit is incomplete, duplicated, or has a checksum mismatch.');
+        seen.add(key);
+      }
+      H = data;
+    }
+  } catch (e) { historyProblem = 'History is unavailable or damaged. Existing data has been preserved; download it for recovery before clearing it.'; }
+  renderHistory(); return !historyProblem;
+}
+function writeHistory(data) {
+  const raw = JSON.stringify(data);
+  if (data.sessions.length > MAX_HISTORY_SESSIONS || raw.length * 2 > MAX_HISTORY_BYTES) { toast('History is full. Download it, then remove old sessions before starting another draw.'); return false; }
+  try {
+    if (localStorage.getItem(HISTORY_KEY) !== historyRaw) { loadHistory(); toast('History changed in another tab. Please try again.'); return false; }
+    localStorage.setItem(HISTORY_KEY, raw); historyRaw = raw; H = data; renderHistory(); return true;
+  } catch (e) { toast('Could not save history. Your current draw is unchanged. Download it before freeing browser storage.'); return false; }
+}
+function archiveCurrent() {
+  if (spinning || exporting || !S.locked || S.draws.length !== S.locked.winnersTarget || !checkSession() || !loadHistory()) return false;
+  const audit = JSON.parse(JSON.stringify(buildAudit()));
+  if (!verifyAudit(audit).ok) { toast('This draw could not be verified for archiving. Download its audit before continuing.'); return false; }
+  const existing = H.sessions.find(item => item.audit.commitment.seedSha256 === audit.commitment.seedSha256);
+  if (existing) {
+    if (JSON.stringify(existing.audit.draws) === JSON.stringify(audit.draws) && JSON.stringify(existing.audit.commitment) === JSON.stringify(audit.commitment) && existing.audit.session.id === audit.session.id && existing.audit.list.sha256 === audit.list.sha256 && existing.audit.entropy.value === audit.entropy.value) return true;
+    toast('A different history record already uses this commitment. Export the current audit for recovery.'); return false;
+  }
+  return writeHistory({ version: 1, sessions: [{ archivedAt: nowISO(), audit }, ...H.sessions] });
+}
+function renderHistory() {
+  $('#historyCurrent').textContent = S?.locked ? `Current session ${S.id}: ${S.draws.length} of ${S.locked.winnersTarget} winners recorded. Completed sessions move into history when you start the next draw.` : 'Your current draft is in the Draw tab. Completed sessions are saved here when you start the next draw.';
+  $('#historyStatus').textContent = historyProblem || `${H.sessions.length} saved session${H.sessions.length === 1 ? '' : 's'} · ${(Math.max(0, (historyRaw || '').length * 2) / 1024).toFixed(0)} KiB of 3 MiB`;
+  $('#recoverHistory').hidden = !historyProblem || !historyRaw;
+  $('#exportHistory').disabled = !!historyProblem || !H.sessions.length;
+  $('#clearHistory').disabled = spinning || exporting || (!historyRaw && !H.sessions.length);
+  $('#historyList').innerHTML = H.sessions.length ? H.sessions.map(item => {
+    const a = item.audit, key = a.commitment.seedSha256;
+    return `<details class="card history-item"><summary>${esc(fmtLocal(a.commitment.committedAt))} · ${a.draws.length} winner${a.draws.length === 1 ? '' : 's'}</summary><div class="meta">Session ${esc(a.session.id)} · ${a.list.count.toLocaleString()} entries · saved ${esc(fmtLocal(item.archivedAt))}</div><ol>${a.draws.map(d => `<li><span class="mono">${esc(d.winner)}</span> <span class="muted">· ${esc(fmtUTC(d.at))}</span></li>`).join('')}</ol><div class="row"><button class="btn sm" data-history="download" data-key="${key}">Download audit</button><button class="btn sm" data-history="verify" data-key="${key}">Verify &amp; replay</button><button class="btn sm ghost danger" data-history="delete" data-key="${key}" ${spinning || exporting ? 'disabled' : ''}>Delete</button></div><details class="log"><summary>Audit trail · ${a.events.length} events</summary><div class="logbody">${a.events.slice(-300).map(event => `<div><span class="t">${esc(fmtUTC(event.at))}</span><span>${esc(event.type)} ${esc(JSON.stringify(Object.fromEntries(Object.entries(event).filter(([k]) => k !== 'at' && k !== 'type'))))}</span></div>`).join('')}</div></details></details>`;
+  }).join('') : '<div class="empty">Your completed draws will appear here. Finish a draw, then choose “Save history &amp; start next draw”.</div>';
+}
+function clearVerification() {
+  verifyRequest++; verifyingHistoryKey = null;
+  verifyView.setPool([]); $('#vText').value = ''; $('#vOut').hidden = true; $('#vOut')._results = []; $('#vOut')._audit = null; $('#vReadVal').textContent = 'Verify a log, then replay any draw'; $('#vReadLbl').textContent = 'Replay'; $('#vReadout').classList.remove('win');
+}
+function resetSessionView() {
+  clearTimeout(statT); importRequest++; verifyRequest++; gifCache.clear(); csvRows = null; restored = false;
+  el.entries.value = S.raw; el.entropy.value = ''; el.entropyNote.value = ''; el.target.value = S.opts.target;
+  el.dedupe.checked = S.opts.dedupe; el.ci.checked = S.opts.ci; el.remove.checked = S.opts.remove; el.duration.value = S.opts.duration; el.durVal.textContent = S.opts.duration + 's'; el.sound.checked = S.opts.sound;
+  $('#csvOpts').hidden = true; $('#restoredNote').hidden = true; el.readout.classList.remove('win'); el.readLbl.textContent = 'Under pointer';
+  $('#hSeedRaw').textContent = '•••••••••• hidden until you reveal it'; $('#revealSeed').textContent = 'reveal';
+  clearVerification();
+  if (confetti._frame) cancelAnimationFrame(confetti._frame); $('#fx').getContext('2d').clearRect(0, 0, $('#fx').width, $('#fx').height);
+  renderStats(); renderLog(); renderAll(); renderHistory();
+}
+function startNextDraw(mode = 'remaining') {
+  if (spinning || exporting || !S.locked || S.draws.length !== S.locked.winnersTarget || !['remaining', 'all', 'blank'].includes(mode) || !checkSession()) return false;
+  const previous = S, indices = mode === 'remaining' ? currentPoolIdx() : previous.locked.entries.map((_, i) => i);
+  const entries = mode === 'blank' ? [] : indices.map(i => previous.locked.entries[i]);
+  if (mode === 'remaining' && entries.length < 2) { toast('Fewer than two entries remain. Choose all entries or a new list.'); return false; }
+  if (!archiveCurrent()) return false;
+  // The complete audit is durable before replacing the current session.
+  newSession(); S.raw = entries.join('\n'); S.source = mode === 'blank' ? 'pasted list' : `next draw from session ${previous.id} · ${mode === 'remaining' ? 'remaining entries' : 'all entries'}`;
+  S.opts = { ...previous.opts, target: entries.length && previous.opts.remove ? Math.min(previous.opts.target, entries.length) : previous.opts.target };
+  logEv('previous_session_archived', { session: previous.id, seedSha256: previous.locked.seedHash, entries: mode });
+  if (!save()) { S = previous; renderLog(); renderAll(); renderHistory(); toast('History was saved, but the next session could not be saved. Your completed draw is still open.'); return false; }
+  resetSessionView(); $('#nav-draw').click(); el.entries.focus(); toast('Previous draw saved in History. Review the next draw, then lock and publish its new commitment.'); return true;
+}
+
 /* ============================== DOM wiring ============================== */
 const el = {
   entries: $('#entries'), dedupe: $('#dedupe'), ci: $('#ci'), stats: $('#listStats'), target: $('#target'), duration: $('#duration'), durVal: $('#durVal'),
@@ -1101,6 +1216,16 @@ function renderAll() {
   el.duration.disabled = el.sound.disabled = busy || storageBlocked;
   el.lockBtn.disabled = !!L || storageBlocked || liveList().entries.length < 2;
   $('#clearBtn').disabled = busy;
+  const complete = !!L && nd === tgt, remaining = L ? currentPoolIdx().length : 0;
+  $('#nextDrawPanel').hidden = !complete;
+  $('#nextSessionBtn').disabled = $('#nextEntries').disabled = busy || storageBlocked;
+  el.spinBtn.hidden = complete && !busy;
+  const remainingOption = $('#nextEntries option[value="remaining"]');
+  if (remainingOption) { remainingOption.disabled = remaining < 2; remainingOption.textContent = `Remaining entries (${remaining.toLocaleString()})`; }
+  const allOption = $('#nextEntries option[value="all"]');
+  if (allOption) allOption.textContent = `All entries again (${L ? L.entries.length.toLocaleString() : 0})`;
+  if (!$('#nextEntries').value || ($('#nextEntries').value === 'remaining' && remaining < 2)) $('#nextEntries').value = remaining >= 2 ? 'remaining' : 'all';
+  if (complete && nextPreparedSession !== S.id) { $('#nextEntries').value = remaining >= 2 && L.removeWinners ? 'remaining' : 'all'; nextPreparedSession = S.id; }
   el.entropy.disabled = el.entropyNote.disabled = nd > 0 || busy || storageBlocked;
   $('#lockPre').hidden = !!L; $('#lockPost').hidden = !L;
   if (L) { $('#hList').textContent = L.listHash; $('#hSeed').textContent = L.seedHash; $('#hTime').textContent = `${fmtUTC(L.at)} · ${fmtLocal(L.at)}`; }
@@ -1115,8 +1240,8 @@ function renderAll() {
   else if (spinning) { label = 'SPINNING…'; hint = 'Result is already recorded in the audit log — the wheel is just catching up.'; }
   else if (!L) hint = liveList().entries.length < 2 ? 'Add at least 2 entries, then lock the list.' : 'Lock the list (step 3) to enable spinning.';
   else if (pool.length === 0) hint = 'Pool is empty.';
-  else if (nd >= tgt) { hint = `All ${tgt} winner${tgt > 1 ? 's' : ''} drawn. Download the audit and share your proof.`; label = 'DRAW COMPLETE'; }
-  else { can = true; label = `SPIN · WINNER ${nd + 1} OF ${tgt}`; hint = nd === 0 ? (S.entropy.value || el.entropy.value.trim() ? 'Public entropy will lock on this spin.' : 'No public entropy set — fine for casual draws, weaker proof.') : `${pool.length} left in pool.`; }
+  else if (nd >= tgt) { hint = `All ${tgt} winner${tgt > 1 ? 's' : ''} drawn. Download your proof, or save this session to History and start the next draw below.`; label = 'DRAW COMPLETE'; }
+  else { can = true; label = `${nd ? 'NEXT DRAW' : 'SPIN'} · WINNER ${nd + 1} OF ${tgt}`; hint = nd === 0 ? (S.entropy.value || el.entropy.value.trim() ? 'Public entropy will lock on this spin.' : 'No public entropy set — fine for casual draws, weaker proof.') : `${pool.length} left in pool. Previous winners remain in the results and audit trail.`; }
   el.spinBtn.disabled = !can; el.spinBtn.textContent = label; el.spinHint.textContent = hint;
   $('#dlJson').disabled = !nd || busy; $('#dlAll').disabled = !nd || busy;
   $('#dlAll').textContent = exporting ? 'Preparing downloads…' : 'Download everything';
@@ -1351,6 +1476,7 @@ function showVerify(text) {
   verifyView.frozen = true; verifyView.setPool([]); $('#vReadLbl').textContent = 'Verification'; $('#vReadVal').textContent = '—'; $('#vReadout').classList.remove('win');
   if (typeof text !== 'string' || enc.encode(text).length > MAX_AUDIT_BYTES) { out.innerHTML = '<div class="verdict fail">Audit file is too large (maximum 10 MiB).</div>'; return; }
   let a; try { a = JSON.parse(text); } catch (e) { out.innerHTML = '<div class="verdict fail">Could not parse JSON</div>'; return; }
+  verifyingHistoryKey = H.sessions.some(item => item.audit.commitment.seedSha256 === a?.commitment?.seedSha256) ? a.commitment.seedSha256 : null;
   let v; try { v = verifyAudit(a); } catch (e) { out.innerHTML = '<div class="verdict fail">Could not verify this malformed audit.</div>'; return; }
   const summary = v.ok ? (a.draws.length ? `✓ Draw calculations verified${a.draws.length < a.commitment.winnersTarget ? ' · partial draw' : ''}` : '✓ Commitment checks passed · no draws recorded') : '✗ Verification failed';
   out.innerHTML = `<div class="verdict ${v.ok ? 'pass' : 'fail'}">${summary}</div>
@@ -1364,6 +1490,7 @@ function showVerify(text) {
 /* ============================== events ============================== */
 function init() {
   load();
+  loadHistory();
   applyTheme(document.documentElement.dataset.theme || 'dark');
   stageView = new WheelView($('#wheel'), el.readVal);
   verifyView = new WheelView($('#vWheel'), $('#vReadVal'));
@@ -1389,6 +1516,7 @@ function init() {
     document.querySelectorAll('nav.tabs button').forEach(x => { x.setAttribute('aria-selected', String(x === b)); x.tabIndex = x === b ? 0 : -1; });
     document.querySelectorAll('.tabpane').forEach(p => p.hidden = p.id !== 'tab-' + b.dataset.tab);
     stageView.resize(); verifyView.resize();
+    if (b.dataset.tab === 'history') loadHistory();
   });
   document.querySelector('nav.tabs').addEventListener('keydown', e => {
     const tabs = Array.from(document.querySelectorAll('nav.tabs button')), i = tabs.indexOf(document.activeElement);
@@ -1427,7 +1555,6 @@ function init() {
     S.raw = names.join('\n'); S.source = 'sample list'; el.entries.value = S.raw; csvRows = null; $('#csvOpts').hidden = true; renderStats(); renderAll(); save();
   };
 
-  let importRequest = 0;
   const loadFile = async f => {
     if (S.locked || !f || !checkSession()) return;
     if (f.size > MAX_INPUT_BYTES) { toast('Entry files must be 2 MB or smaller.'); return; }
@@ -1519,24 +1646,17 @@ function init() {
     if (spinning || exporting) return;
     if (!recoveryData && !checkSession()) { toast('Reload to use the latest session before clearing it.'); return; }
     const unsaved = S.draws.length && S.exportedAt !== S.draws.length;
-    if (!confirm(unsaved ? 'You have draws that are NOT exported. Clear anyway? This deletes the seed and audit trail from this browser.' : 'Clear this session from the browser and start fresh?')) return;
+    if (!confirm(unsaved ? 'You have draws that are NOT exported. Clear the current session anyway? Use Next draw to keep completed results in History. Existing History is kept.' : 'Clear the current session and start fresh? Existing History is kept; clear it separately in the History tab.')) return;
     clearTimeout(statT); importRequest++; verifyRequest++;
     try { localStorage.removeItem(KEY); } catch (e) {}
     storageSnapshot = null; storageBlocked = false; recoveryData = null; $('#storageWarning').hidden = true; $('#recoverStorage').hidden = true;
-    gifCache.clear(); restored = false; newSession(); save();
-    el.entries.value = ''; el.entropy.value = ''; el.entropyNote.value = ''; el.target.value = 1; csvRows = null; $('#csvOpts').hidden = true; $('#restoredNote').hidden = true;
-    el.dedupe.checked = true; el.ci.checked = false; el.remove.checked = true; el.duration.value = 7; el.durVal.textContent = '7s'; el.sound.checked = true; el.readout.classList.remove('win'); el.readLbl.textContent = 'Under pointer';
-    $('#hSeedRaw').textContent = '•••••••••• hidden until you reveal it'; $('#revealSeed').textContent = 'reveal';
-    verifyView.setPool([]); $('#vText').value = ''; $('#vOut').hidden = true; $('#vOut')._results = []; $('#vOut')._audit = null; $('#vReadVal').textContent = 'Verify a log, then replay any draw'; $('#vReadLbl').textContent = 'Replay'; $('#vReadout').classList.remove('win');
-    if (confetti._frame) cancelAnimationFrame(confetti._frame); $('#fx').getContext('2d').clearRect(0, 0, $('#fx').width, $('#fx').height);
-    renderStats(); renderAll(); toast('Session cleared');
+    newSession(); save(); resetSessionView(); toast('Current session cleared. Saved History is kept.');
   };
   window.addEventListener('beforeunload', e => { if (exporting || (S.draws.length && S.exportedAt !== S.draws.length)) { e.preventDefault(); e.returnValue = ''; } });
-  window.addEventListener('storage', e => { if (e.key === KEY || e.key === null) checkSession(); });
+  window.addEventListener('storage', e => { if (e.key === KEY || e.key === null) checkSession(); if (e.key === HISTORY_KEY || e.key === null) loadHistory(); });
   $('#recoverStorage').onclick = () => { if (recoveryData) downloadBlob(new Blob([recoveryData], { type: 'application/json' }), 'fairspin-session-recovery.json'); };
 
   // verify tab
-  let verifyRequest = 0;
   $('#vFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; const request = ++verifyRequest; if (f.size > MAX_AUDIT_BYTES) { toast('Audit files must be 10 MB or smaller.'); return; } try { const t = await f.text(); if (request !== verifyRequest) return; $('#vText').value = t; showVerify(t); } catch (error) { toast('Could not read the audit file.'); } };
   $('#vRun').onclick = () => { verifyRequest++; showVerify($('#vText').value); };
   $('#vText').addEventListener('input', () => { verifyRequest++; verifyView.cancelSpin(); $('#vOut').hidden = true; $('#vOut')._results = []; $('#vOut')._audit = null; verifyView.setPool([]); $('#vReadVal').textContent = 'Verify the updated log to see results'; $('#vReadout').classList.remove('win'); });
@@ -1549,6 +1669,25 @@ function init() {
     verifyView.frozen = true; $('#vReadLbl').textContent = `Winner #${r.d.n}`; $('#vReadVal').textContent = r.d.winner; $('#vReadout').classList.add('win');
   });
   $('#copyPy').onclick = () => copyText($('#pyCode').textContent);
+  $('#nextSessionBtn').onclick = () => startNextDraw($('#nextEntries').value);
+  $('#backToDraw').onclick = () => $('#nav-draw').click();
+  $('#exportHistory').onclick = () => { if (loadHistory() && H.sessions.length) downloadBlob(new Blob([JSON.stringify(H, null, 2)], { type: 'application/json' }), 'fairspin-history.json'); };
+  $('#recoverHistory').onclick = () => { if (historyRaw) downloadBlob(new Blob([historyRaw], { type: 'application/json' }), 'fairspin-history-recovery.json'); };
+  $('#clearHistory').onclick = () => {
+    if (spinning || exporting) return;
+    if (!confirm('Delete all saved draw history from this browser? Download history first if you need a backup. The current session is kept.')) return;
+    try { localStorage.removeItem(HISTORY_KEY); if (verifyingHistoryKey) clearVerification(); loadHistory(); toast('Saved history cleared. The current session is kept.'); } catch (e) { toast('Could not clear history; browser storage is unavailable.'); }
+  };
+  $('#historyList').addEventListener('click', e => {
+    const b = e.target.closest('[data-history]'); if (!b || !loadHistory()) return;
+    const item = H.sessions.find(item => item.audit.commitment.seedSha256 === b.dataset.key); if (!item) return;
+    const a = item.audit;
+    if (b.dataset.history === 'download') downloadBlob(new Blob([JSON.stringify(a, null, 2)], { type: 'application/json' }), `fairspin-${a.session.id.replace(/[^a-z0-9_-]/gi, '_').slice(0, 80)}-audit.json`);
+    if (b.dataset.history === 'verify') { verifyRequest++; const text = JSON.stringify(a, null, 2); $('#vText').value = text; $('#nav-verify').click(); showVerify(text); verifyingHistoryKey = b.dataset.key; }
+    if (b.dataset.history === 'delete' && !spinning && !exporting && confirm('Delete this saved draw from local history? Download its audit first if you need a copy.')) {
+      if (writeHistory({ version: 1, sessions: H.sessions.filter(x => x !== item) }) && verifyingHistoryKey === b.dataset.key) clearVerification();
+    }
+  });
 }
 init();
 </script>
