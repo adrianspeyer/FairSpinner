@@ -4,7 +4,9 @@ User-visible changes to FairSpin are recorded here. Application release numbers 
 
 ## [Unreleased]
 
-No unreleased changes recorded.
+### Changed
+
+- Removed the GitHub CI test workflow. Maintainer QA and release checks run locally before pushing changes.
 
 ## [1.1.0] - 2026-11-06
 

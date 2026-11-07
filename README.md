@@ -165,7 +165,7 @@ Each GIF also carries an embedded comment with the draw number, timestamp, winne
 
 ## Development and QA
 
-GitHub Actions runs the release-metadata checks, CSP checks and regression tests on pushes and pull requests. It uses read-only repository permissions and pinned action revisions. Bug reports request the footer version and synthetic reproduction data; see [Contributing](./CONTRIBUTING.md) and [security reporting](./SECURITY.md#reporting-a-problem).
+Maintainer QA runs locally before changes are pushed, using the release-metadata checks, CSP checks and regression tests as appropriate. There is no GitHub CI test workflow. Bug reports request the footer version and synthetic reproduction data; see [Contributing](./CONTRIBUTING.md) and [security reporting](./SECURITY.md#reporting-a-problem).
 
 No npm install or build step is needed to run the app or the tests. With Node.js 20.19+ and Python 3 installed:
 

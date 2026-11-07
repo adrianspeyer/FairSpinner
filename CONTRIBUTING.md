@@ -6,6 +6,8 @@ FairSpin is a standalone HTML application for verifiable draws. Keep the offline
 
 Open `index.html` in a modern browser. Use synthetic entries or **Load sample** for development. Node.js 20.19+ and Python 3 are needed for the automated checks; running the app and tests does not require `npm install`.
 
+Run relevant QA locally before pushing changes, and include the results in pull requests. The repository does not run a GitHub CI test workflow.
+
 ```sh
 node scripts/sync-release.cjs --check
 node scripts/update-csp.cjs --check
